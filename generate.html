@@ -167,15 +167,29 @@
       </div>
 
       <div class="form-group mb-4">
-        <div class="form-label mb-2">Past Paper Questions</div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="form-label" style="margin-bottom:0;">Past Paper Questions</div>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+            📎 Upload PDF
+            <input type="file" accept=".pdf" id="imp-paper-pdf" style="display:none;" onchange="pdfToTextarea(this,'imp-paper','imp-paper-status')">
+          </label>
+        </div>
+        <div id="imp-paper-status" class="text-xs text-dim mb-1 hidden"></div>
         <textarea class="textarea textarea-lg" id="imp-paper" rows="10"
-          placeholder="Paste the exam questions here — include question numbers, marks in brackets [2], and all sub-parts exactly as printed on the paper."></textarea>
+          placeholder="Paste the exam questions here — or upload a PDF above. Include question numbers, marks in brackets [2], and all sub-parts exactly as printed on the paper."></textarea>
       </div>
 
       <div class="form-group mb-4">
-        <div class="form-label mb-2">Mark Scheme <span class="text-dim" style="font-weight:400;text-transform:none;">(optional but strongly recommended)</span></div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="form-label" style="margin-bottom:0;">Mark Scheme <span class="text-dim" style="font-weight:400;text-transform:none;">(optional but strongly recommended)</span></div>
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;">
+            📎 Upload PDF
+            <input type="file" accept=".pdf" id="imp-scheme-pdf" style="display:none;" onchange="pdfToTextarea(this,'imp-scheme','imp-scheme-status')">
+          </label>
+        </div>
+        <div id="imp-scheme-status" class="text-xs text-dim mb-1 hidden"></div>
         <textarea class="textarea" id="imp-scheme" rows="6"
-          placeholder="Paste the mark scheme here. The AI will use it to generate accurate mark points and explanations."></textarea>
+          placeholder="Paste the mark scheme here — or upload a PDF above. The AI will use it to generate accurate mark points and explanations."></textarea>
       </div>
 
       <div class="flex gap-3 items-center flex-wrap">
@@ -219,6 +233,7 @@
   }
 </style>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="data.js"></script>
 <script src="grading.js"></script>
 <script src="store.js"></script>
@@ -694,6 +709,55 @@
     t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:10px 22px;border-radius:20px;font-weight:600;font-size:.875rem;z-index:999;animation:fadeIn .2s ease;pointer-events:none;';
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 2500);
+  }
+
+  // ── PDF extraction ────────────────────────────────────────────
+  async function pdfToTextarea(input, textareaId, statusId) {
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const statusEl = document.getElementById(statusId);
+    const textarea = document.getElementById(textareaId);
+
+    statusEl.textContent = `Reading ${file.name}…`;
+    statusEl.classList.remove('hidden');
+
+    try {
+      // Configure PDF.js worker
+      if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded — check your internet connection.');
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+      const buffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buffer }).promise;
+      const totalPages = pdf.numPages;
+
+      let fullText = '';
+      for (let i = 1; i <= totalPages; i++) {
+        statusEl.textContent = `Extracting page ${i} / ${totalPages}…`;
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        // Join items preserving rough layout (line breaks by y-position change)
+        let lastY = null;
+        const lines = [];
+        for (const item of content.items) {
+          if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+            lines.push('\n');
+          }
+          lines.push(item.str);
+          lastY = item.transform[5];
+        }
+        fullText += lines.join('') + '\n\n';
+      }
+
+      textarea.value = fullText.trim();
+      statusEl.innerHTML = `<span style="color:var(--green);">✓ ${file.name} — ${totalPages} page${totalPages !== 1 ? 's' : ''} extracted</span>`;
+    } catch (e) {
+      statusEl.innerHTML = `<span style="color:var(--red);">✗ ${e.message}</span>`;
+    }
+
+    // Reset input so the same file can be re-uploaded if needed
+    input.value = '';
   }
 
   // ── Init ──────────────────────────────────────────────────────
