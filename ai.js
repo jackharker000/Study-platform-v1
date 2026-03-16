@@ -1,68 +1,121 @@
-/* ── AI Integration (Anthropic Claude API) ────────────────────── */
+/* ── Provider config ───────────────────────────────────────────── */
 
-const AI_KEY_STORAGE = 'rp-ai-key';
-const AI_MODEL_GRADE  = 'claude-haiku-4-5-20251001';
-const AI_MODEL_GEN    = 'claude-sonnet-4-6';
+const PROVIDERS = {
+  openrouter: {
+    name: 'OpenRouter',
+    url: 'https://openrouter.ai/api/v1/chat/completions',
+    defaultModel: 'deepseek/deepseek-r1-distill-qwen-32b',
+    needsKey: true,
+    note: 'Free tier at openrouter.ai — supports DeepSeek R1 Distill Qwen 32B',
+  },
+  deepseek: {
+    name: 'DeepSeek API',
+    url: 'https://api.deepseek.com/v1/chat/completions',
+    defaultModel: 'deepseek-reasoner',
+    needsKey: true,
+    note: 'DeepSeek R1 via platform.deepseek.com',
+  },
+  ollama: {
+    name: 'Ollama (Local)',
+    url: 'http://localhost:11434/v1/chat/completions',
+    defaultModel: 'deepseek-r1:32b',
+    needsKey: false,
+    note: 'Run DeepSeek R1 locally — start Ollama with OLLAMA_ORIGINS=* before using',
+  },
+};
 
-function getApiKey()      { return localStorage.getItem(AI_KEY_STORAGE) || ''; }
-function setApiKey(k)     { localStorage.setItem(AI_KEY_STORAGE, k.trim()); }
-function hasApiKey()      { return !!getApiKey(); }
+const STORAGE_PROVIDER = 'rp-ai-provider';
+const STORAGE_KEY      = 'rp-ai-key';
+const STORAGE_MODEL    = 'rp-ai-model';
 
-/* ── Core API call ────────────────────────────────────────────── */
-async function callClaude(messages, systemPrompt, model = AI_MODEL_GEN) {
+function getProvider()     { return localStorage.getItem(STORAGE_PROVIDER) || 'openrouter'; }
+function setProvider(p)    { localStorage.setItem(STORAGE_PROVIDER, p); }
+function getApiKey()       { return localStorage.getItem(STORAGE_KEY) || ''; }
+function setApiKey(k)      { localStorage.setItem(STORAGE_KEY, k.trim()); }
+function getModel()        {
+  return localStorage.getItem(STORAGE_MODEL) || PROVIDERS[getProvider()]?.defaultModel || 'deepseek/deepseek-r1-distill-qwen-32b';
+}
+function setModel(m)       { localStorage.setItem(STORAGE_MODEL, m); }
+function hasApiKey()       {
+  const p = getProvider();
+  return p === 'ollama' || !!getApiKey();
+}
+
+/* ── Core API call (OpenAI-compatible format) ─────────────────── */
+async function callAI(messages, model) {
+  const provider = getProvider();
+  const cfg = PROVIDERS[provider];
+  if (!cfg) throw new Error('Unknown provider: ' + provider);
+
   const key = getApiKey();
-  if (!key) throw new Error('No API key. Go to the Generate page to add your Anthropic API key.');
+  if (cfg.needsKey && !key) throw new Error(`No API key set for ${cfg.name}. Add it in ✦ AI → Settings.`);
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({ model, max_tokens: 4096, system: systemPrompt, messages }),
-  });
+  const m = model || getModel();
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (cfg.needsKey && key) headers['Authorization'] = `Bearer ${key}`;
+  if (provider === 'openrouter') {
+    headers['HTTP-Referer'] = location.href;
+    headers['X-Title'] = 'Study Platform';
+  }
+
+  const body = { model: m, messages, temperature: 0.3, max_tokens: 4096 };
+
+  const res = await fetch(cfg.url, { method: 'POST', headers, body: JSON.stringify(body) });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error?.message || `API error ${res.status}`);
+    let msg = `API error ${res.status}`;
+    try { const e = await res.json(); msg = e.error?.message || e.message || msg; } catch {}
+    throw new Error(msg);
   }
+
   const data = await res.json();
-  return data.content[0].text;
+  // Extract content — handle both standard and reasoning models
+  const choice = data.choices?.[0];
+  const content = choice?.message?.content || choice?.message?.reasoning_content || '';
+  if (!content) throw new Error('Empty response from model');
+  return content;
 }
 
 function parseJson(raw) {
-  // Strip markdown code fences if present
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  // Remove <think>...</think> reasoning blocks from R1 models
+  let cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  // Remove markdown fences
+  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  // Find the first [ or { and parse from there
+  const start = cleaned.search(/[[\{]/);
+  if (start > 0) cleaned = cleaned.slice(start);
   return JSON.parse(cleaned);
 }
 
 /* ── AI Grading ───────────────────────────────────────────────── */
 async function gradeWithAI(question, userAnswer) {
   const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[question.subject]) || {};
-  const system = `You are a strict but fair Cambridge exam marker for ${subjectInfo.name || question.subject} (${question.level || subjectInfo.level || ''} level, syllabus ${question.syllabus || subjectInfo.syllabus || ''}). Award marks only for clearly demonstrated understanding.`;
 
-  const markSchemeText = (question.markScheme || []).join('\n') || 'Not provided — use your expert judgment.';
+  const system = {
+    role: 'system',
+    content: `You are a strict Cambridge exam marker for ${subjectInfo.name || question.subject} (${question.level || ''} level). Award marks only for points that clearly match the mark scheme. Be concise and specific.`,
+  };
 
-  const prompt = `Question: ${question.prompt}
+  const markSchemeText = (question.markScheme || []).join('\n') || 'No mark scheme — use subject expertise.';
 
-Marks available: ${question.marks}
-Mark scheme:
+  const user = {
+    role: 'user',
+    content: `QUESTION: ${question.prompt}
+
+MARKS AVAILABLE: ${question.marks}
+
+MARK SCHEME:
 ${markSchemeText}
 
-Student's answer:
+STUDENT'S ANSWER:
 ${userAnswer}
 
-Award marks precisely. Respond with ONLY valid JSON (no markdown fences):
-{
-  "score": <integer 0–${question.marks}>,
-  "feedback": "<1–2 sentences: what they got right/wrong>",
-  "strengths": ["<specific strength>"],
-  "missingPoints": ["<specific missing point>"]
-}`;
+Grade this answer. Respond with ONLY a JSON object (no markdown, no explanation outside JSON):
+{"score":${question.marks > 1 ? `<integer 0-${question.marks}>` : '<0 or 1>'},"feedback":"<1-2 sentences on what was right/wrong>","strengths":["<specific point>"],"missingPoints":["<specific missing point>"]}`,
+  };
 
-  const raw = await callClaude([{ role: 'user', content: prompt }], system, AI_MODEL_GRADE);
+  const raw = await callAI([system, user]);
   const parsed = parseJson(raw);
 
   const score = Math.min(question.marks, Math.max(0, Number(parsed.score) || 0));
@@ -74,7 +127,7 @@ Award marks precisely. Respond with ONLY valid JSON (no markdown fences):
     score,
     maxScore: question.marks,
     gradingType: 'ai_rubric',
-    feedback: parsed.feedback || '',
+    feedback: String(parsed.feedback || ''),
     strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
     missingPoints: Array.isArray(parsed.missingPoints) ? parsed.missingPoints : [],
   };
@@ -82,43 +135,53 @@ Award marks precisely. Respond with ONLY valid JSON (no markdown fences):
 
 /* ── Question Generation ──────────────────────────────────────── */
 async function generateQuestions({ subject, topic, difficulty, questionType, count }) {
-  const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[subject]) || {};
+  const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[subject]) || { name: subject, level: '', syllabus: '' };
 
-  const system = `You are an expert ${subjectInfo.name || subject} exam question writer for ${subjectInfo.level || ''} Cambridge International exams (syllabus ${subjectInfo.syllabus || ''}). Write rigorous, exam-style questions with detailed mark schemes.`;
-
-  const typeHints = {
-    mcq: 'Multiple choice: 4 options (A–D). correctAnswer = index 0–3.',
-    'short-answer': '3–6 marks. Structured answer requiring key points. correctAnswer = null.',
-    calculation: 'Numerical/algebraic problem. correctAnswer = the exact numeric answer as a string (e.g. "375000" or "0.050").',
-    essay: '6–12 marks. Extended response. correctAnswer = null.',
+  const typeInstructions = {
+    mcq: `Multiple choice with exactly 4 options. "options":["A text","B text","C text","D text"], "correctAnswer":<0-3 integer>.`,
+    'short-answer': `Short answer (3-6 marks). "options":null, "correctAnswer":null. Include detailed markScheme array.`,
+    calculation: `Numerical problem. "options":null, "correctAnswer":"<exact numeric answer as string, e.g. 375000 or 0.050>".`,
+    essay: `Extended response (6-12 marks). "options":null, "correctAnswer":null. Include markScheme with 6+ points.`,
   };
 
-  const prompt = `Generate ${count} ${difficulty}-difficulty ${questionType} exam questions on the topic "${topic}" for ${subjectInfo.name || subject}.
+  const messages = [
+    {
+      role: 'system',
+      content: `You are an expert ${subjectInfo.name} exam question writer for Cambridge International ${subjectInfo.level} level (syllabus ${subjectInfo.syllabus}). Write rigorous, exam-style questions matching Cambridge style exactly.`,
+    },
+    {
+      role: 'user',
+      content: `Write ${count} ${difficulty} ${questionType} exam question${count > 1 ? 's' : ''} on "${topic}" for ${subjectInfo.name}.
 
-${typeHints[questionType] || ''}
+${typeInstructions[questionType] || ''}
 
-Respond with ONLY a valid JSON array (no markdown), each object:
-{
-  "prompt": "<full question text, may include sub-parts>",
-  "questionType": "${questionType}",
-  "topic": "${topic}",
-  "difficulty": "${difficulty}",
-  "marks": <integer>,
-  "options": ${questionType === 'mcq' ? '["option A", "option B", "option C", "option D"]' : 'null'},
-  "correctAnswer": <see instructions above>,
-  "explanation": "<full explanation of the correct answer>",
-  "markScheme": ["<mark point> [1]", ...],
-  "teachingSteps": ["<step 1>", "<step 2>", ...]
-}`;
+Respond with ONLY a JSON array (no markdown), each object having EXACTLY these fields:
+[
+  {
+    "prompt": "<full question text>",
+    "questionType": "${questionType}",
+    "topic": "${topic}",
+    "difficulty": "${difficulty}",
+    "marks": <integer>,
+    "options": <see above>,
+    "correctAnswer": <see above>,
+    "explanation": "<full explanation of correct answer>",
+    "markScheme": ["<mark point with [1] at end>", ...],
+    "teachingSteps": ["<step 1>", "<step 2>", ...]
+  }
+]`,
+    },
+  ];
 
-  const raw = await callClaude([{ role: 'user', content: prompt }], system, AI_MODEL_GEN);
+  const raw = await callAI(messages);
   const arr = parseJson(raw);
+  if (!Array.isArray(arr)) throw new Error('Model returned unexpected format — try again.');
 
   return arr.map((q, i) => ({
     id: `ai_${subject}_${Date.now()}_${i}`,
     subject,
-    level: subjectInfo.level || '',
-    syllabus: subjectInfo.syllabus || '',
+    level: subjectInfo.level,
+    syllabus: subjectInfo.syllabus,
     paper: 'AI Generated',
     subtopic: topic,
     syllabusRef: '',
@@ -129,45 +192,58 @@ Respond with ONLY a valid JSON array (no markdown), each object:
     aiMarkable: true,
     commonMistakes: [],
     ...q,
+    // Ensure marks is a number
+    marks: Number(q.marks) || 1,
+    // Ensure correctAnswer is right type for mcq
+    correctAnswer: q.questionType === 'mcq' ? Number(q.correctAnswer) : q.correctAnswer,
   }));
 }
 
 /* ── Past Paper Import ────────────────────────────────────────── */
 async function importFromPastPaper({ subject, paperText, markSchemeText }) {
-  const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[subject]) || {};
+  const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[subject]) || { name: subject, level: '', syllabus: '' };
 
-  const system = `You are an expert at extracting and structuring ${subjectInfo.name || subject} Cambridge exam questions. Preserve the original wording exactly. Infer topics, difficulty, and question type from context.`;
-
-  const prompt = `Extract every question from the following ${subjectInfo.name || subject} past paper and pair each with its mark scheme answer.
+  const messages = [
+    {
+      role: 'system',
+      content: `You are an expert at extracting and structuring ${subjectInfo.name} Cambridge exam questions. Preserve original wording exactly. Match each question with its mark scheme answer.`,
+    },
+    {
+      role: 'user',
+      content: `Extract every question from this ${subjectInfo.name} past paper. Match with the mark scheme where provided.
 
 PAST PAPER:
 ${paperText}
 
-MARK SCHEME:
-${markSchemeText || '(not provided — infer from the questions)'}
+${markSchemeText ? `MARK SCHEME:\n${markSchemeText}` : '(No mark scheme provided — infer answers from questions)'}
 
-Respond with ONLY a valid JSON array (no markdown), each object:
-{
-  "prompt": "<exact question wording, including sub-parts>",
-  "questionType": "mcq" | "short-answer" | "calculation" | "essay",
-  "topic": "<inferred topic>",
-  "difficulty": "easy" | "medium" | "hard",
-  "marks": <integer from the paper>,
-  "options": ["A", "B", "C", "D"] or null,
-  "correctAnswer": <0-3 for mcq, numeric string for calculation, null otherwise>,
-  "explanation": "<explanation from mark scheme>",
-  "markScheme": ["<mark point> [1]", ...],
-  "teachingSteps": []
-}`;
+Respond with ONLY a JSON array (no markdown), each object:
+[
+  {
+    "prompt": "<exact question wording including sub-parts a,b,c etc>",
+    "questionType": "mcq"|"short-answer"|"calculation"|"essay",
+    "topic": "<inferred topic name>",
+    "difficulty": "easy"|"medium"|"hard",
+    "marks": <integer from paper>,
+    "options": ["A","B","C","D"] or null,
+    "correctAnswer": <0-3 for mcq, numeric string for calculation, null otherwise>,
+    "explanation": "<explanation from mark scheme>",
+    "markScheme": ["<mark point> [1]", ...],
+    "teachingSteps": []
+  }
+]`,
+    },
+  ];
 
-  const raw = await callClaude([{ role: 'user', content: prompt }], system, AI_MODEL_GEN);
+  const raw = await callAI(messages);
   const arr = parseJson(raw);
+  if (!Array.isArray(arr)) throw new Error('Model returned unexpected format — try again.');
 
   return arr.map((q, i) => ({
     id: `pp_${subject}_${Date.now()}_${i}`,
     subject,
-    level: subjectInfo.level || '',
-    syllabus: subjectInfo.syllabus || '',
+    level: subjectInfo.level,
+    syllabus: subjectInfo.syllabus,
     paper: 'Past Paper',
     subtopic: q.topic || '',
     syllabusRef: '',
@@ -178,5 +254,33 @@ Respond with ONLY a valid JSON array (no markdown), each object:
     aiMarkable: true,
     commonMistakes: [],
     ...q,
+    marks: Number(q.marks) || 1,
+    correctAnswer: q.questionType === 'mcq' ? Number(q.correctAnswer) : q.correctAnswer,
   }));
+}
+
+/* ── Auto-generate mark scheme for existing question ──────────── */
+async function generateMarkScheme(question) {
+  const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[question.subject]) || {};
+  const messages = [
+    {
+      role: 'system',
+      content: `You are an expert Cambridge ${subjectInfo.name || question.subject} mark scheme writer.`,
+    },
+    {
+      role: 'user',
+      content: `Write a detailed mark scheme for this question:
+
+${question.prompt}
+
+Marks: ${question.marks}
+Type: ${question.questionType}
+
+Respond with ONLY a JSON object:
+{"markScheme":["<mark point> [1]",...],"explanation":"<full model answer>","teachingSteps":["<step>",...]}`,
+    },
+  ];
+
+  const raw = await callAI(messages);
+  return parseJson(raw);
 }

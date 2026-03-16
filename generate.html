@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Question Generator — Study Platform</title>
+  <title>AI Generator — Study Platform</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,40 +15,63 @@
   <a href="dashboard.html" class="nav-link">Dashboard</a>
 </nav>
 
-<div class="container pb-8">
+<div class="container pb-8" style="padding-top:20px;">
 
-  <!-- API Key Setup -->
-  <div class="card fade-up mb-4" id="apiKeyCard" style="margin-top:24px;">
-    <div class="modal-title">🔑 Anthropic API Key</div>
-    <div class="flex gap-3 items-center flex-wrap">
-      <input type="password" id="apiKeyInput" class="input" style="flex:1;min-width:200px;"
-        placeholder="sk-ant-..." autocomplete="off">
-      <button class="btn btn-primary btn-sm" onclick="saveKey()">Save Key</button>
-      <button class="btn btn-ghost btn-sm" onclick="testKey()">Test</button>
+  <!-- ── Settings card ──────────────────────────────────────── -->
+  <div class="card mb-4 fade-up" id="settingsCard">
+    <div class="modal-title" style="margin-bottom:14px;">⚙ AI Model Settings</div>
+
+    <!-- Provider selector -->
+    <div class="form-row" style="margin-bottom:14px;">
+      <div class="form-group">
+        <div class="form-label">Provider</div>
+        <select class="input" id="providerSelect" onchange="onProviderChange()">
+          <option value="openrouter">OpenRouter — DeepSeek R1 Distill Qwen 32B</option>
+          <option value="deepseek">DeepSeek API — R1 (deepseek-reasoner)</option>
+          <option value="ollama">Ollama — Local (no key needed)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div class="form-label">Model</div>
+        <input type="text" class="input" id="modelInput" placeholder="model name">
+      </div>
     </div>
-    <div id="keyStatus" style="margin-top:8px;font-size:.82rem;color:var(--text-dim);">
-      Your key is stored locally in the browser and never sent anywhere except the Anthropic API.
+
+    <!-- API key row (hidden for Ollama) -->
+    <div id="keyRow" class="flex gap-3 items-center flex-wrap" style="margin-bottom:10px;">
+      <input type="password" class="input" id="apiKeyInput" style="flex:1;min-width:180px;"
+        placeholder="Paste your API key here…" autocomplete="off">
+      <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save</button>
+      <button class="btn btn-ghost btn-sm" id="testBtn" onclick="testConnection()">Test</button>
     </div>
+
+    <div id="providerNote" class="text-xs text-dim" style="margin-bottom:6px;"></div>
+    <div id="keyStatus" style="font-size:.82rem;"></div>
+
+    <!-- Quick-start links -->
+    <div id="keyLinks" style="margin-top:8px;font-size:.8rem;color:var(--text-dim);"></div>
   </div>
 
-  <!-- Tabs -->
+  <!-- ── Tabs ────────────────────────────────────────────────── -->
   <div class="tabs">
     <button class="tab-btn active" id="tab-generate" onclick="switchTab('generate')">✦ Generate Questions</button>
-    <button class="tab-btn" id="tab-import" onclick="switchTab('import')">📄 Import Past Paper</button>
-    <button class="tab-btn" id="tab-library" onclick="switchTab('library')">📚 My Library</button>
+    <button class="tab-btn" id="tab-import"   onclick="switchTab('import')">📄 Past Paper Import</button>
+    <button class="tab-btn" id="tab-library"  onclick="switchTab('library')">📚 My Library</button>
   </div>
 
-  <!-- ── Generate Tab ─────────────────────────────────────────── -->
+  <!-- ── Generate tab ────────────────────────────────────────── -->
   <div id="panel-generate">
-    <div class="card fade-up mb-4">
+    <div class="card mb-4">
       <div class="form-row">
         <div class="form-group">
           <div class="form-label">Subject</div>
-          <select class="input" id="gen-subject"></select>
+          <select class="input" id="gen-subject" onchange="updateTopicSuggestions()"></select>
         </div>
         <div class="form-group">
           <div class="form-label">Topic</div>
-          <input type="text" class="input" id="gen-topic" placeholder="e.g. Newton's Laws">
+          <input type="text" class="input" id="gen-topic" list="topicSuggestions"
+            placeholder="e.g. Newton's Laws…">
+          <datalist id="topicSuggestions"></datalist>
         </div>
         <div class="form-group">
           <div class="form-label">Difficulty</div>
@@ -68,7 +91,7 @@
           </select>
         </div>
         <div class="form-group">
-          <div class="form-label">How Many</div>
+          <div class="form-label">Count</div>
           <select class="input" id="gen-count">
             <option value="1">1</option>
             <option value="3" selected>3</option>
@@ -77,24 +100,31 @@
           </select>
         </div>
       </div>
-      <button class="btn btn-primary" id="generateBtn" onclick="runGenerate()">
-        ✦ Generate with AI
-      </button>
+
+      <div class="flex gap-3 items-center flex-wrap">
+        <button class="btn btn-primary" id="generateBtn" onclick="runGenerate()">
+          ✦ Generate Questions
+        </button>
+        <div id="gen-model-label" class="text-xs text-dim"></div>
+      </div>
     </div>
 
     <div id="gen-loading" class="hidden">
-      <div class="loading-row card mb-4">
+      <div class="loading-row card mb-3">
         <div class="spinner spinner-lg"></div>
-        <span>Claude is writing your questions…</span>
+        <div>
+          <div style="font-weight:600;color:var(--text);">Generating questions…</div>
+          <div class="text-xs text-dim" id="gen-progress">DeepSeek R1 is thinking</div>
+        </div>
       </div>
     </div>
-    <div id="gen-error" class="hidden" style="color:var(--red);font-size:.875rem;margin-bottom:12px;padding:12px;background:var(--red-bg);border-radius:var(--radius);border:1px solid rgba(239,68,68,.2);"></div>
+    <div id="gen-error" class="hidden error-box"></div>
     <div id="gen-preview"></div>
   </div>
 
-  <!-- ── Import Tab ────────────────────────────────────────────── -->
+  <!-- ── Import tab ───────────────────────────────────────────── -->
   <div id="panel-import" class="hidden">
-    <div class="card fade-up mb-4">
+    <div class="card mb-4">
       <div class="form-row" style="margin-bottom:16px;">
         <div class="form-group">
           <div class="form-label">Subject</div>
@@ -105,208 +135,308 @@
       <div class="form-group mb-4">
         <div class="form-label mb-2">Past Paper Questions</div>
         <textarea class="textarea textarea-lg" id="imp-paper" rows="10"
-          placeholder="Paste the exam questions here. Include question numbers, marks, and all sub-parts exactly as they appear on the paper."></textarea>
+          placeholder="Paste the exam questions here — include question numbers, marks in brackets [2], and all sub-parts exactly as printed on the paper."></textarea>
       </div>
 
       <div class="form-group mb-4">
-        <div class="form-label mb-2">Mark Scheme (optional but recommended)</div>
+        <div class="form-label mb-2">Mark Scheme <span class="text-dim" style="font-weight:400;text-transform:none;">(optional but strongly recommended)</span></div>
         <textarea class="textarea" id="imp-scheme" rows="6"
-          placeholder="Paste the mark scheme here. Claude will use it to create detailed explanations and mark points."></textarea>
+          placeholder="Paste the mark scheme here. The AI will use it to generate accurate mark points and explanations."></textarea>
       </div>
 
-      <button class="btn btn-primary" id="importBtn" onclick="runImport()">
-        ✦ Extract Questions with AI
-      </button>
+      <div class="flex gap-3 items-center flex-wrap">
+        <button class="btn btn-primary" id="importBtn" onclick="runImport()">
+          ✦ Extract Questions
+        </button>
+        <span class="text-xs text-dim">AI will structure all questions with mark schemes</span>
+      </div>
     </div>
 
     <div id="imp-loading" class="hidden">
-      <div class="loading-row card mb-4">
+      <div class="loading-row card mb-3">
         <div class="spinner spinner-lg"></div>
-        <span>Claude is extracting questions from your paper…</span>
+        <div>
+          <div style="font-weight:600;color:var(--text);">Extracting questions…</div>
+          <div class="text-xs text-dim">Reading the paper and matching with mark scheme</div>
+        </div>
       </div>
     </div>
-    <div id="imp-error" class="hidden" style="color:var(--red);font-size:.875rem;margin-bottom:12px;padding:12px;background:var(--red-bg);border-radius:var(--radius);border:1px solid rgba(239,68,68,.2);"></div>
+    <div id="imp-error" class="hidden error-box"></div>
     <div id="imp-preview"></div>
   </div>
 
-  <!-- ── Library Tab ───────────────────────────────────────────── -->
+  <!-- ── Library tab ──────────────────────────────────────────── -->
   <div id="panel-library" class="hidden">
     <div id="library-content"></div>
   </div>
 
 </div>
 
+<style>
+  .error-box {
+    background: var(--red-bg);
+    border: 1px solid rgba(239,68,68,.25);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    color: var(--red);
+    font-size: .875rem;
+    margin-bottom: 14px;
+    white-space: pre-wrap;
+  }
+</style>
+
 <script src="data.js"></script>
 <script src="grading.js"></script>
 <script src="store.js"></script>
 <script src="ai.js"></script>
 <script>
-  // ── Init ──────────────────────────────────────────────────────
   loadCustomQuestions();
 
-  // Populate subject selects
+  const DIFF_BADGE = { easy: 'badge-green', medium: 'badge-amber', hard: 'badge-red' };
+
+  // ── Populate subject dropdowns ────────────────────────────────
   ['gen-subject', 'imp-subject'].forEach(id => {
     const sel = document.getElementById(id);
     SUBJECTS.forEach(s => {
-      const opt = document.createElement('option');
-      opt.value = s.id;
-      opt.textContent = `${s.icon} ${s.name}`;
-      sel.appendChild(opt);
+      const o = document.createElement('option');
+      o.value = s.id; o.textContent = `${s.icon} ${s.name}`;
+      sel.appendChild(o);
     });
   });
 
-  // Load saved API key
-  const savedKey = getApiKey();
-  if (savedKey) {
-    document.getElementById('apiKeyInput').value = savedKey;
-    document.getElementById('keyStatus').innerHTML = '<span class="key-status-ok">✓ API key saved</span>';
+  // ── Settings init ─────────────────────────────────────────────
+  function initSettings() {
+    const p = getProvider();
+    document.getElementById('providerSelect').value = p;
+    document.getElementById('modelInput').value = getModel();
+    const key = getApiKey();
+    if (key) document.getElementById('apiKeyInput').value = key;
+    updateProviderUI(p);
   }
 
-  // ── API key ───────────────────────────────────────────────────
-  function saveKey() {
-    const val = document.getElementById('apiKeyInput').value.trim();
-    if (!val) return showKeyStatus('Enter a key first.', false);
-    setApiKey(val);
-    showKeyStatus('✓ Key saved!', true);
+  function onProviderChange() {
+    const p = document.getElementById('providerSelect').value;
+    setProvider(p);
+    // Reset model to default for this provider
+    const defaultModel = PROVIDERS[p].defaultModel;
+    document.getElementById('modelInput').value = defaultModel;
+    setModel(defaultModel);
+    updateProviderUI(p);
   }
 
-  async function testKey() {
-    const val = document.getElementById('apiKeyInput').value.trim();
-    if (!val) return showKeyStatus('Enter a key first.', false);
-    setApiKey(val);
-    showKeyStatus('Testing…', null);
+  function updateProviderUI(p) {
+    const cfg = PROVIDERS[p];
+    const keyRow = document.getElementById('keyRow');
+    const note   = document.getElementById('providerNote');
+    const links  = document.getElementById('keyLinks');
+
+    keyRow.style.display = cfg.needsKey ? '' : 'none';
+    note.textContent = cfg.note || '';
+
+    const linkMap = {
+      openrouter: '→ Get a free key at <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--accent);">openrouter.ai/keys</a> — DeepSeek R1 Distill Qwen 32B is available on the free tier.',
+      deepseek:   '→ Get an API key at <a href="https://platform.deepseek.com/" target="_blank" style="color:var(--accent);">platform.deepseek.com</a>',
+      ollama:     '→ Install Ollama, run: <code style="background:var(--bg-input);padding:2px 6px;border-radius:4px;">OLLAMA_ORIGINS=* ollama run deepseek-r1:32b</code>',
+    };
+    links.innerHTML = linkMap[p] || '';
+
+    const status = document.getElementById('keyStatus');
+    if (p === 'ollama') {
+      status.innerHTML = '<span class="key-status-ok">✓ No key needed for local Ollama</span>';
+    } else {
+      status.innerHTML = getApiKey()
+        ? '<span class="key-status-ok">✓ API key saved</span>'
+        : '<span class="key-status-err">No API key saved yet</span>';
+    }
+
+    // Update model label on generate tab
+    document.getElementById('gen-model-label').textContent =
+      `Using: ${getModel()} via ${cfg.name}`;
+  }
+
+  function saveSettings() {
+    const p   = document.getElementById('providerSelect').value;
+    const key = document.getElementById('apiKeyInput').value.trim();
+    const m   = document.getElementById('modelInput').value.trim();
+    setProvider(p);
+    if (key) setApiKey(key);
+    if (m)   setModel(m);
+    updateProviderUI(p);
+    showToast('✓ Settings saved');
+  }
+
+  async function testConnection() {
+    const p   = document.getElementById('providerSelect').value;
+    const key = document.getElementById('apiKeyInput').value.trim();
+    const m   = document.getElementById('modelInput').value.trim();
+    if (PROVIDERS[p].needsKey && !key) {
+      return setStatus('key', 'Enter your API key first.', false);
+    }
+    // Temporarily save for the test
+    setProvider(p); if (key) setApiKey(key); if (m) setModel(m);
+
+    const btn = document.getElementById('testBtn');
+    btn.disabled = true; btn.textContent = 'Testing…';
+    setStatus('key', 'Connecting…', null);
+
     try {
-      await callClaude([{ role: 'user', content: 'Reply with just "ok".' }], 'Reply "ok".', AI_MODEL_GRADE);
-      showKeyStatus('✓ API key is working!', true);
+      const reply = await callAI([
+        { role: 'system', content: 'You are a helpful assistant.' },
+        { role: 'user',   content: 'Reply with exactly: "Connection OK"' },
+      ]);
+      const ok = reply.includes('OK') || reply.includes('ok') || reply.length > 0;
+      setStatus('key', ok ? `✓ Connected! Model replied: "${reply.substring(0, 60)}"` : `Reply: ${reply.substring(0, 80)}`, ok);
     } catch (e) {
-      showKeyStatus('✗ ' + e.message, false);
+      setStatus('key', '✗ ' + e.message, false);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Test';
     }
   }
 
-  function showKeyStatus(msg, ok) {
-    const el = document.getElementById('keyStatus');
-    el.innerHTML = ok === true
-      ? `<span class="key-status-ok">${msg}</span>`
-      : ok === false
-      ? `<span class="key-status-err">${msg}</span>`
-      : `<span style="color:var(--text-dim)">${msg}</span>`;
+  function setStatus(type, msg, ok) {
+    const el = document.getElementById(type === 'key' ? 'keyStatus' : type);
+    if (!el) return;
+    el.innerHTML = ok === true  ? `<span class="key-status-ok">${msg}</span>`
+                 : ok === false ? `<span class="key-status-err">${msg}</span>`
+                 : `<span style="color:var(--text-dim)">${msg}</span>`;
   }
+
+  // ── Topic suggestions ─────────────────────────────────────────
+  function updateTopicSuggestions() {
+    const subjectId = document.getElementById('gen-subject').value;
+    const topics = getTopicsForSubject(subjectId);
+    const dl = document.getElementById('topicSuggestions');
+    dl.innerHTML = topics.map(t => `<option value="${t}">`).join('');
+  }
+  updateTopicSuggestions();
 
   // ── Tabs ──────────────────────────────────────────────────────
   function switchTab(name) {
-    ['generate', 'import', 'library'].forEach(t => {
+    ['generate','import','library'].forEach(t => {
       document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
       document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== name);
     });
     if (name === 'library') renderLibrary();
   }
 
-  // ── Preview helpers ───────────────────────────────────────────
-  const DIFF_BADGE = { easy: 'badge-green', medium: 'badge-amber', hard: 'badge-red' };
-
+  // ── Preview card renderer ─────────────────────────────────────
   function renderPreviewCards(questions, containerId) {
     const container = document.getElementById(containerId);
-    if (questions.length === 0) {
-      container.innerHTML = '<div class="empty-state"><div class="empty-icon">🤷</div><div class="empty-title">No questions extracted</div><p class="text-dim text-sm">Try pasting more text or check your API key.</p></div>';
+    if (!questions.length) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">🤷</div><div class="empty-title">No questions returned</div><p class="text-dim text-sm">Try a different topic or check the model response.</p></div>`;
       return;
     }
 
     container.innerHTML = '';
+    container._questions = questions;
 
-    const header = document.createElement('div');
-    header.className = 'flex items-center justify-between mb-3';
-    header.innerHTML = `
-      <div class="section-label">${questions.length} question${questions.length !== 1 ? 's' : ''} generated</div>
-      <div class="flex gap-2">
-        <button class="btn btn-success btn-sm" onclick="saveAll(${JSON.stringify(containerId)})">Save All to Library</button>
-      </div>
+    const hdr = document.createElement('div');
+    hdr.className = 'flex items-center justify-between mb-3';
+    hdr.innerHTML = `
+      <div class="section-label">${questions.length} question${questions.length !== 1 ? 's' : ''} ready</div>
+      <button class="btn btn-success btn-sm" onclick="saveAll('${containerId}')">Save All to Library</button>
     `;
-    container.appendChild(header);
+    container.appendChild(hdr);
 
     questions.forEach((q, i) => {
       const card = document.createElement('div');
       card.className = 'preview-card fade-up';
       card.id = `pcard-${containerId}-${i}`;
-      card.dataset.saved = 'false';
 
-      let detailsHtml = '';
+      let detailHtml = '';
       if (q.questionType === 'mcq' && q.options) {
-        detailsHtml += `<div style="margin-top:8px;"><div class="feedback-label mb-1">Options</div>${q.options.map((o, oi) => `<div style="font-size:.82rem;padding:3px 0;${oi === q.correctAnswer ? 'color:var(--green);font-weight:600;' : 'color:var(--text-dim);'}">  ${['A','B','C','D'][oi]}. ${o}${oi === q.correctAnswer ? ' ✓' : ''}</div>`).join('')}</div>`;
+        detailHtml += `<div style="margin-top:8px;">${q.options.map((o, oi) =>
+          `<div style="font-size:.82rem;padding:2px 0;${oi === q.correctAnswer ? 'color:var(--green);font-weight:600;' : 'color:var(--text-dim);'}">
+            ${['A','B','C','D'][oi]}. ${o}${oi === Number(q.correctAnswer) ? ' ✓' : ''}
+          </div>`).join('')}</div>`;
       }
       if (q.questionType === 'calculation' && q.correctAnswer) {
-        detailsHtml += `<div style="margin-top:6px;font-size:.82rem;"><strong style="color:var(--text-dim);">Answer:</strong> <span style="color:var(--amber);">${q.correctAnswer}</span></div>`;
-      }
-      if (q.markScheme && q.markScheme.length > 0) {
-        detailsHtml += `<div class="preview-card-ms"><div class="feedback-label mb-1">Mark Scheme</div>${q.markScheme.map(p => `<div>• ${p}</div>`).join('')}</div>`;
+        detailHtml += `<div style="margin-top:6px;font-size:.82rem;color:var(--text-dim);">Answer: <strong style="color:var(--amber);">${q.correctAnswer}</strong></div>`;
       }
       if (q.explanation) {
-        detailsHtml += `<div class="preview-card-ms" style="margin-top:6px;"><span style="color:var(--accent);font-weight:600;">Explanation:</span> ${q.explanation}</div>`;
+        detailHtml += `<div class="preview-card-ms" style="margin-top:8px;"><strong style="color:var(--accent);">Explanation:</strong> ${q.explanation}</div>`;
       }
+      if (q.markScheme?.length) {
+        detailHtml += `<div class="preview-card-ms"><strong>Mark Scheme:</strong><br>${q.markScheme.map(p => `• ${p}`).join('<br>')}</div>`;
+      }
+      if (q.teachingSteps?.length) {
+        detailHtml += `<div class="preview-card-ms"><strong>Steps:</strong><br>${q.teachingSteps.map((s,si) => `${si+1}. ${s}`).join('<br>')}</div>`;
+      }
+
+      const tagBadge = (q.tags||[]).includes('past-paper') ? 'badge-amber' : 'badge-ai';
+      const tagLabel = (q.tags||[]).includes('past-paper') ? '📄 Past Paper' : '✦ AI';
 
       card.innerHTML = `
         <div class="preview-card-meta">
-          <span class="badge ${DIFF_BADGE[q.difficulty] || 'badge-gray'}">${q.difficulty}</span>
+          <span class="badge ${DIFF_BADGE[q.difficulty]||'badge-gray'}">${q.difficulty}</span>
           <span class="badge badge-gray">${q.questionType}</span>
-          <span class="badge badge-blue">${q.marks} mark${q.marks !== 1 ? 's' : ''}</span>
-          <span class="badge badge-ai">✦ AI</span>
-          <span class="badge badge-gray" style="margin-left:auto;">${q.topic || q.subtopic || ''}</span>
+          <span class="badge badge-blue">${q.marks} mark${q.marks!==1?'s':''}</span>
+          <span class="badge ${tagBadge}">${tagLabel}</span>
+          <span class="text-dim text-xs" style="margin-left:auto;">${q.topic||q.subtopic||''}</span>
         </div>
         <div class="preview-card-prompt">${q.prompt}</div>
-        ${detailsHtml}
+        ${detailHtml}
         <div class="preview-card-actions" style="margin-top:12px;">
-          <button class="btn btn-success btn-sm" id="save-btn-${containerId}-${i}"
-            onclick="saveOne(${JSON.stringify(containerId)}, ${i})">+ Save to Library</button>
+          <button class="btn btn-success btn-sm" id="sbtn-${containerId}-${i}"
+            onclick="saveOne('${containerId}',${i})">+ Save to Library</button>
           <button class="btn btn-ghost btn-sm"
-            onclick="discardOne(${JSON.stringify(containerId)}, ${i})">Discard</button>
+            onclick="discardOne('${containerId}',${i})">Discard</button>
         </div>
       `;
       container.appendChild(card);
     });
-
-    // Store questions on container element for bulk save
-    container._questions = questions;
   }
 
-  function saveOne(containerId, idx) {
-    const container = document.getElementById(containerId);
-    const q = container._questions[idx];
+  function saveOne(cid, i) {
+    const container = document.getElementById(cid);
+    const q = container._questions?.[i];
     if (!q) return;
     saveCustomQuestion(q);
-    const card = document.getElementById(`pcard-${containerId}-${idx}`);
+    const card = document.getElementById(`pcard-${cid}-${i}`);
     card.classList.add('saved');
-    const btn = document.getElementById(`save-btn-${containerId}-${idx}`);
-    btn.textContent = '✓ Saved';
-    btn.disabled = true;
+    const btn = document.getElementById(`sbtn-${cid}-${i}`);
+    btn.textContent = '✓ Saved'; btn.disabled = true;
   }
 
-  function saveAll(containerId) {
-    const container = document.getElementById(containerId);
-    const questions = container._questions || [];
-    questions.forEach((q, i) => saveOne(containerId, i));
-    // Show toast
-    showToast(`✓ ${questions.length} questions saved to your library`);
+  function saveAll(cid) {
+    const container = document.getElementById(cid);
+    (container._questions || []).forEach((_, i) => saveOne(cid, i));
+    showToast(`✓ All questions saved to library`);
   }
 
-  function discardOne(containerId, idx) {
-    const card = document.getElementById(`pcard-${containerId}-${idx}`);
-    card.classList.add('discarded');
-    setTimeout(() => card.remove(), 400);
+  function discardOne(cid, i) {
+    const card = document.getElementById(`pcard-${cid}-${i}`);
+    if (card) { card.classList.add('discarded'); setTimeout(() => card.remove(), 350); }
   }
 
   // ── Generate ──────────────────────────────────────────────────
   async function runGenerate() {
+    if (!hasApiKey()) return showError('gen-error', '⚠ No API key saved. Configure settings above first.');
+
     const subject    = document.getElementById('gen-subject').value;
     const topic      = document.getElementById('gen-topic').value.trim();
     const difficulty = document.getElementById('gen-difficulty').value;
     const qType      = document.getElementById('gen-type').value;
     const count      = parseInt(document.getElementById('gen-count').value, 10);
 
-    if (!topic) return showError('gen-error', 'Please enter a topic.');
-    if (!hasApiKey()) return showError('gen-error', 'No API key saved. Enter your Anthropic API key above.');
+    if (!topic) return showError('gen-error', 'Please enter a topic to generate questions about.');
 
-    setLoading('gen', true);
     clearError('gen-error');
     document.getElementById('gen-preview').innerHTML = '';
+    setLoading('gen', true);
+
+    // Progress ticker
+    const steps = [
+      'DeepSeek R1 is reasoning…',
+      'Writing questions and mark schemes…',
+      'Checking against Cambridge style…',
+      'Almost done…',
+    ];
+    let step = 0;
+    const ticker = setInterval(() => {
+      const el = document.getElementById('gen-progress');
+      if (el) el.textContent = steps[Math.min(step++, steps.length - 1)] || steps[steps.length-1];
+    }, 3500);
 
     try {
       const questions = await generateQuestions({ subject, topic, difficulty, questionType: qType, count });
@@ -314,25 +444,27 @@
     } catch (e) {
       showError('gen-error', e.message);
     } finally {
+      clearInterval(ticker);
       setLoading('gen', false);
     }
   }
 
   // ── Import ────────────────────────────────────────────────────
   async function runImport() {
-    const subject     = document.getElementById('imp-subject').value;
-    const paperText   = document.getElementById('imp-paper').value.trim();
-    const schemeText  = document.getElementById('imp-scheme').value.trim();
+    if (!hasApiKey()) return showError('imp-error', '⚠ No API key saved. Configure settings above first.');
 
-    if (!paperText) return showError('imp-error', 'Please paste some past paper content.');
-    if (!hasApiKey()) return showError('imp-error', 'No API key saved. Enter your Anthropic API key above.');
+    const subject   = document.getElementById('imp-subject').value;
+    const paperText = document.getElementById('imp-paper').value.trim();
+    const scheme    = document.getElementById('imp-scheme').value.trim();
 
-    setLoading('imp', true);
+    if (!paperText) return showError('imp-error', 'Please paste some past paper content first.');
+
     clearError('imp-error');
     document.getElementById('imp-preview').innerHTML = '';
+    setLoading('imp', true);
 
     try {
-      const questions = await importFromPastPaper({ subject, paperText, markSchemeText: schemeText });
+      const questions = await importFromPastPaper({ subject, paperText, markSchemeText: scheme });
       renderPreviewCards(questions, 'imp-preview');
     } catch (e) {
       showError('imp-error', e.message);
@@ -345,17 +477,12 @@
   function renderLibrary() {
     const container = document.getElementById('library-content');
     const customs = getCustomQuestions();
-    if (customs.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">📭</div>
-          <div class="empty-title">Your library is empty</div>
-          <p class="text-dim text-sm mt-2">Generate or import questions to build your personal question bank.</p>
-        </div>`;
+
+    if (!customs.length) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">Your library is empty</div><p class="text-dim text-sm mt-2">Generate questions or import a past paper to build your personal bank.</p></div>`;
       return;
     }
 
-    // Group by subject
     const grouped = {};
     for (const q of customs) {
       grouped[q.subject] = grouped[q.subject] || [];
@@ -363,49 +490,45 @@
     }
 
     container.innerHTML = '';
-
-    const header = document.createElement('div');
-    header.className = 'flex items-center justify-between mb-4';
-    header.innerHTML = `
-      <div class="section-label">${customs.length} saved question${customs.length !== 1 ? 's' : ''}</div>
-      <button class="btn btn-ghost btn-sm" onclick="startCustomQuiz()">Start Quiz with All →</button>
+    const hdr = document.createElement('div');
+    hdr.className = 'flex items-center justify-between mb-4';
+    hdr.innerHTML = `
+      <div class="section-label">${customs.length} saved question${customs.length!==1?'s':''}</div>
+      <a href="index.html" class="btn btn-primary btn-sm">Quiz with custom questions →</a>
     `;
-    container.appendChild(header);
+    container.appendChild(hdr);
 
     for (const [subjectId, qs] of Object.entries(grouped)) {
       const subj = SUBJECT_MAP[subjectId] || { name: subjectId, icon: '📚' };
-      const section = document.createElement('div');
-      section.className = 'mb-6';
-      section.innerHTML = `
-        <div class="flex items-center gap-2 mb-3">
-          <span style="font-size:1.2rem;">${subj.icon}</span>
-          <span class="font-semibold text-bright">${subj.name}</span>
-          <span class="badge badge-gray">${qs.length}</span>
-        </div>
-      `;
+      const sec = document.createElement('div');
+      sec.className = 'mb-6';
+      sec.innerHTML = `<div class="flex items-center gap-2 mb-3">
+        <span style="font-size:1.2rem;">${subj.icon}</span>
+        <span class="font-semibold text-bright">${subj.name}</span>
+        <span class="badge badge-gray">${qs.length}</span>
+      </div>`;
 
       qs.forEach(q => {
-        const tagBadge = (q.tags || []).includes('past-paper') ? 'badge-amber' : 'badge-ai';
-        const tagLabel = (q.tags || []).includes('past-paper') ? 'Past Paper' : '✦ AI';
+        const tagBadge = (q.tags||[]).includes('past-paper') ? 'badge-amber' : 'badge-ai';
+        const tagLabel = (q.tags||[]).includes('past-paper') ? '📄 Past Paper' : '✦ AI';
         const item = document.createElement('div');
         item.className = 'result-item mb-2';
         item.innerHTML = `
           <div class="result-item-header">
             <div class="result-status-dot" style="background:var(--accent);"></div>
-            <div class="result-q-text">${q.prompt.substring(0, 90)}${q.prompt.length > 90 ? '…' : ''}</div>
+            <div class="result-q-text">${q.prompt.substring(0,90)}${q.prompt.length>90?'…':''}</div>
           </div>
-          <div class="flex gap-2 items-center flex-wrap">
-            <span class="badge ${DIFF_BADGE[q.difficulty] || 'badge-gray'}">${q.difficulty}</span>
+          <div class="flex gap-2 items-center flex-wrap mt-1">
+            <span class="badge ${DIFF_BADGE[q.difficulty]||'badge-gray'}">${q.difficulty}</span>
             <span class="badge badge-gray">${q.questionType}</span>
-            <span class="badge badge-blue">${q.marks} mark${q.marks !== 1 ? 's' : ''}</span>
+            <span class="badge badge-blue">${q.marks} mark${q.marks!==1?'s':''}</span>
             <span class="badge ${tagBadge}">${tagLabel}</span>
-            <span class="text-dim text-xs" style="margin-left:auto;">${q.topic || q.subtopic || ''}</span>
+            <span class="text-dim text-xs" style="margin-left:auto;">${q.topic||q.subtopic||''}</span>
             <button class="btn btn-danger btn-sm" onclick="removeQ('${q.id}')">Remove</button>
-          </div>
-        `;
-        section.appendChild(item);
+          </div>`;
+        sec.appendChild(item);
       });
-      container.appendChild(section);
+      container.appendChild(sec);
     }
   }
 
@@ -415,41 +538,35 @@
     renderLibrary();
   }
 
-  function startCustomQuiz() {
-    const customs = getCustomQuestions();
-    if (customs.length === 0) return;
-    // Use the first question's subject
-    const subject = customs[0].subject;
-    location.href = `subject.html?id=${subject}`;
-  }
-
   // ── Helpers ───────────────────────────────────────────────────
   function setLoading(prefix, on) {
-    document.getElementById(`${prefix}-loading`).classList.toggle('hidden', !on);
-    const btn = document.getElementById(`${prefix === 'gen' ? 'generate' : 'import'}Btn`);
+    const loadEl = document.getElementById(`${prefix}-loading`);
+    const btnId  = prefix === 'gen' ? 'generateBtn' : 'importBtn';
+    const btn    = document.getElementById(btnId);
+    loadEl.classList.toggle('hidden', !on);
     btn.disabled = on;
     btn.innerHTML = on
-      ? '<span class="spinner"></span> Working…'
-      : prefix === 'gen' ? '✦ Generate with AI' : '✦ Extract Questions with AI';
+      ? `<span class="spinner"></span> Working…`
+      : (prefix === 'gen' ? '✦ Generate Questions' : '✦ Extract Questions');
   }
 
   function showError(id, msg) {
     const el = document.getElementById(id);
-    el.textContent = msg;
-    el.classList.remove('hidden');
+    el.textContent = msg; el.classList.remove('hidden');
   }
-
   function clearError(id) {
     document.getElementById(id).classList.add('hidden');
   }
-
   function showToast(msg) {
     const t = document.createElement('div');
     t.textContent = msg;
-    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:10px 20px;border-radius:20px;font-weight:600;font-size:.875rem;z-index:999;animation:fadeIn .2s ease;';
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:10px 22px;border-radius:20px;font-weight:600;font-size:.875rem;z-index:999;animation:fadeIn .2s ease;pointer-events:none;';
     document.body.appendChild(t);
-    setTimeout(() => t.remove(), 2800);
+    setTimeout(() => t.remove(), 2500);
   }
+
+  // ── Init ──────────────────────────────────────────────────────
+  initSettings();
 </script>
 </body>
 </html>
