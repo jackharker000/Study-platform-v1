@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma, ensureDb } from '@/lib/db'
 import { QUESTION_MAP } from '@/data/questions'
 import { gradeAnswer } from '@/lib/grading'
 import type { SubmitAnswerPayload } from '@/types'
 
 export async function POST(req: NextRequest) {
+  await ensureDb()
   try {
     const body = (await req.json()) as SubmitAnswerPayload
     const { sessionId, questionId, userAnswer, confidence, timeMs } = body

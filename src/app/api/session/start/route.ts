@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma, ensureDb } from '@/lib/db'
 import { filterQuestions, shuffleArray, QUESTION_MAP } from '@/data/questions'
 import type { StartSessionPayload, SessionMode } from '@/types'
 
@@ -18,6 +18,7 @@ function selectQuestions(
 }
 
 export async function POST(req: NextRequest) {
+  await ensureDb()
   try {
     const body = (await req.json()) as StartSessionPayload
     const { subject, mode, filters, count } = body

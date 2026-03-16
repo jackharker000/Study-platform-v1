@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma, ensureDb } from '@/lib/db'
 import { SUBJECTS } from '@/data/subjects'
 
 export async function GET() {
+  await ensureDb()
   try {
     const allAnswers = await prisma.answer.findMany({
       orderBy: { createdAt: 'desc' },

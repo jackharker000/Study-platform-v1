@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { prisma, ensureDb } from '@/lib/db'
 import { QUESTION_MAP } from '@/data/questions'
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  await ensureDb()
   try {
     const session = await prisma.session.findUnique({
       where: { id: params.id },
