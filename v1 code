@@ -1,0 +1,1920 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Revision Platform</title>
+<style>
+/* ═══════════════════════════════════════════
+   CSS VARIABLES & RESET
+   ═══════════════════════════════════════════ */
+:root {
+  --bg: #0b0e14;
+  --bg-card: #111620;
+  --bg-card-hover: #161d2a;
+  --bg-input: #0d1018;
+  --border: #1c2333;
+  --border-focus: #3b82f6;
+  --text: #c8cdd5;
+  --text-dim: #6b7280;
+  --text-bright: #e8ecf1;
+  --accent: #3b82f6;
+  --accent-glow: #3b82f620;
+  --green: #22c55e;
+  --green-bg: #22c55e15;
+  --red: #ef4444;
+  --red-bg: #ef444415;
+  --amber: #f59e0b;
+  --amber-bg: #f59e0b15;
+  --purple: #a855f7;
+  --purple-bg: #a855f715;
+  --cyan: #06b6d4;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+  --shadow: 0 2px 12px #0003;
+  --font-display: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  --font-body: 'Segoe UI', 'SF Pro Text', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  --transition: 0.2s ease;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 15px; scroll-behavior: smooth; }
+
+body {
+font-family: var(–font-body);
+background: var(–bg);
+color: var(–text);
+min-height: 100vh;
+line-height: 1.6;
+-webkit-font-smoothing: antialiased;
+}
+
+/* Subtle noise texture */
+body::before {
+content: ‘’;
+position: fixed; inset: 0;
+background: url(“data:image/svg+xml,%3Csvg viewBox=‘0 0 256 256’ xmlns=‘http://www.w3.org/2000/svg’%3E%3Cfilter id=‘n’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=‘0.9’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘100%25’ height=‘100%25’ filter=‘url(%23n)’ opacity=‘0.03’/%3E%3C/svg%3E”);
+pointer-events: none;
+z-index: 0;
+}
+
+/* ═══════════ SCROLLBAR ═══════════ */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 3px; }
+
+/* ═══════════ LAYOUT ═══════════ */
+#app {
+position: relative;
+z-index: 1;
+max-width: 860px;
+margin: 0 auto;
+padding: 20px 16px 100px;
+}
+
+/* ═══════════ ANIMATIONS ═══════════ */
+@keyframes fadeUp {
+from { opacity: 0; transform: translateY(12px); }
+to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+from { opacity: 0; }
+to { opacity: 1; }
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+@keyframes slideRight {
+from { opacity: 0; transform: translateX(-16px); }
+to { opacity: 1; transform: translateX(0); }
+}
+
+.fade-up { animation: fadeUp .4s ease both; }
+.fade-in { animation: fadeIn .3s ease both; }
+.stagger-1 { animation-delay: .05s; }
+.stagger-2 { animation-delay: .1s; }
+.stagger-3 { animation-delay: .15s; }
+.stagger-4 { animation-delay: .2s; }
+.stagger-5 { animation-delay: .25s; }
+
+/* ═══════════ TYPOGRAPHY ═══════════ */
+h1 {
+font-family: var(–font-display);
+font-size: 1.85rem;
+color: var(–text-bright);
+font-weight: 600;
+letter-spacing: -.01em;
+}
+h2 {
+font-size: .78rem;
+font-weight: 600;
+color: var(–text-dim);
+text-transform: uppercase;
+letter-spacing: 1.2px;
+margin-bottom: 10px;
+}
+h3 {
+font-family: var(–font-display);
+font-size: 1.15rem;
+color: var(–text-bright);
+font-weight: 600;
+}
+
+/* ═══════════ HEADER ═══════════ */
+.header {
+text-align: center;
+padding: 28px 0 18px;
+}
+.header-brand {
+display: inline-flex;
+align-items: center;
+gap: 10px;
+margin-bottom: 6px;
+}
+.header-logo {
+width: 32px; height: 32px;
+background: linear-gradient(135deg, var(–accent), var(–purple));
+border-radius: 8px;
+display: flex; align-items: center; justify-content: center;
+font-weight: 800; font-size: 14px; color: #fff;
+}
+.header-sub {
+font-size: .82rem;
+color: var(–text-dim);
+margin-top: 2px;
+}
+
+/* ═══════════ NAV TABS ═══════════ */
+.nav-tabs {
+display: flex;
+gap: 4px;
+padding: 4px;
+background: var(–bg-card);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+margin-bottom: 24px;
+overflow-x: auto;
+}
+.nav-tab {
+flex: 1;
+padding: 9px 12px;
+border: none;
+background: transparent;
+color: var(–text-dim);
+font-size: .8rem;
+font-weight: 500;
+border-radius: var(–radius-sm);
+cursor: pointer;
+transition: var(–transition);
+white-space: nowrap;
+font-family: var(–font-body);
+}
+.nav-tab:hover { color: var(–text); background: var(–bg-card-hover); }
+.nav-tab.active {
+background: var(–accent);
+color: #fff;
+font-weight: 600;
+}
+
+/* ═══════════ CARDS ═══════════ */
+.card {
+background: var(–bg-card);
+border: 1px solid var(–border);
+border-radius: var(–radius-lg);
+padding: 24px;
+margin-bottom: 16px;
+}
+.card-flush { padding: 0; overflow: hidden; }
+
+/* ═══════════ SUBJECT GRID ═══════════ */
+.subject-grid {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+gap: 10px;
+margin-bottom: 24px;
+}
+.subject-card {
+padding: 18px 16px;
+background: var(–bg-card);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+cursor: pointer;
+transition: var(–transition);
+position: relative;
+overflow: hidden;
+}
+.subject-card::before {
+content: ‘’;
+position: absolute;
+top: 0; left: 0; right: 0;
+height: 3px;
+background: var(–subject-color, var(–accent));
+opacity: 0;
+transition: var(–transition);
+}
+.subject-card:hover {
+border-color: var(–subject-color, var(–accent));
+background: var(–bg-card-hover);
+transform: translateY(-1px);
+}
+.subject-card:hover::before { opacity: 1; }
+.subject-card.selected {
+border-color: var(–subject-color, var(–accent));
+box-shadow: 0 0 0 1px var(–subject-color, var(–accent));
+}
+.subject-card.selected::before { opacity: 1; }
+.subject-name {
+font-family: var(–font-display);
+font-size: 1rem;
+font-weight: 600;
+color: var(–text-bright);
+margin-bottom: 2px;
+}
+.subject-meta {
+font-size: .75rem;
+color: var(–text-dim);
+}
+.subject-stat {
+display: inline-flex;
+align-items: center;
+gap: 4px;
+margin-top: 8px;
+font-size: .72rem;
+color: var(–text-dim);
+background: var(–bg);
+padding: 3px 8px;
+border-radius: 20px;
+}
+
+/* ═══════════ FILTER ROW ═══════════ */
+.filter-row {
+display: flex;
+flex-wrap: wrap;
+gap: 8px;
+margin-bottom: 16px;
+}
+.filter-select {
+padding: 7px 12px;
+background: var(–bg-input);
+border: 1px solid var(–border);
+border-radius: var(–radius-sm);
+color: var(–text);
+font-size: .78rem;
+font-family: var(–font-body);
+cursor: pointer;
+transition: var(–transition);
+min-width: 120px;
+}
+.filter-select:focus {
+outline: none;
+border-color: var(–accent);
+box-shadow: 0 0 0 2px var(–accent-glow);
+}
+
+/* ═══════════ CHIPS ═══════════ */
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.chip {
+padding: 5px 12px;
+border-radius: 20px;
+border: 1px solid var(–border);
+background: var(–bg-card);
+color: var(–text-dim);
+font-size: .72rem;
+font-weight: 500;
+cursor: pointer;
+transition: var(–transition);
+}
+.chip:hover { border-color: var(–text-dim); color: var(–text); }
+.chip.active {
+background: var(–accent);
+border-color: var(–accent);
+color: #fff;
+}
+
+/* ═══════════ BADGE ═══════════ */
+.badge {
+display: inline-block;
+padding: 2px 9px;
+border-radius: 20px;
+font-size: .68rem;
+font-weight: 600;
+text-transform: capitalize;
+}
+.badge-easy { background: var(–green-bg); color: var(–green); }
+.badge-medium { background: var(–amber-bg); color: var(–amber); }
+.badge-hard { background: var(–red-bg); color: var(–red); }
+.badge-vhard { background: var(–purple-bg); color: var(–purple); }
+.badge-topic { background: #3b82f612; color: var(–accent); }
+.badge-type { background: #06b6d412; color: var(–cyan); }
+
+/* ═══════════ BUTTONS ═══════════ */
+.btn {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+gap: 6px;
+padding: 11px 24px;
+border: none;
+border-radius: var(–radius);
+font-size: .85rem;
+font-weight: 600;
+font-family: var(–font-body);
+cursor: pointer;
+transition: var(–transition);
+}
+.btn-primary {
+background: var(–accent);
+color: #fff;
+}
+.btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+.btn-primary:disabled { opacity: .35; cursor: not-allowed; transform: none; }
+.btn-ghost {
+background: transparent;
+border: 1px solid var(–border);
+color: var(–text-dim);
+}
+.btn-ghost:hover { border-color: var(–text-dim); color: var(–text); }
+.btn-danger {
+background: transparent;
+border: 1px solid var(–red)30;
+color: var(–red);
+}
+.btn-danger:hover { background: var(–red-bg); }
+.btn-sm { padding: 7px 14px; font-size: .78rem; }
+.btn-block { width: 100%; }
+
+/* ═══════════ PROGRESS BAR ═══════════ */
+.progress-wrap {
+margin-bottom: 18px;
+}
+.progress-meta {
+display: flex;
+justify-content: space-between;
+margin-bottom: 5px;
+font-size: .75rem;
+}
+.progress-track {
+height: 5px;
+background: var(–border);
+border-radius: 3px;
+overflow: hidden;
+}
+.progress-fill {
+height: 100%;
+background: var(–accent);
+border-radius: 3px;
+transition: width .5s ease;
+}
+
+/* ═══════════ QUESTION CARD ═══════════ */
+.q-card {
+background: var(–bg-card);
+border: 1px solid var(–border);
+border-radius: var(–radius-lg);
+padding: 28px;
+animation: fadeUp .35s ease both;
+}
+.q-meta {
+display: flex;
+flex-wrap: wrap;
+gap: 6px;
+margin-bottom: 10px;
+}
+.q-source {
+font-size: .72rem;
+color: var(–text-dim);
+margin-bottom: 4px;
+}
+.q-prompt {
+font-family: var(–font-display);
+font-size: 1.12rem;
+color: var(–text-bright);
+line-height: 1.65;
+margin-bottom: 22px;
+font-weight: 500;
+}
+
+/* MCQ Options */
+.q-options { display: flex; flex-direction: column; gap: 8px; }
+.q-option {
+display: flex;
+align-items: center;
+gap: 14px;
+padding: 14px 16px;
+background: var(–bg);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+cursor: pointer;
+transition: var(–transition);
+font-size: .92rem;
+color: var(–text);
+width: 100%;
+text-align: left;
+font-family: var(–font-body);
+}
+.q-option:hover:not(.locked) {
+border-color: var(–accent);
+background: #3b82f608;
+}
+.q-option.selected:not(.locked) {
+border-color: var(–accent);
+background: var(–accent-glow);
+}
+.q-option.correct {
+border-color: var(–green);
+background: var(–green-bg);
+color: var(–green);
+}
+.q-option.incorrect {
+border-color: var(–red);
+background: var(–red-bg);
+color: var(–red);
+opacity: .7;
+}
+.q-option.locked { cursor: default; }
+.q-option-letter {
+display: flex;
+align-items: center;
+justify-content: center;
+width: 30px; height: 30px;
+border-radius: 50%;
+background: var(–border);
+font-size: .78rem;
+font-weight: 700;
+flex-shrink: 0;
+color: var(–text-dim);
+}
+.q-option.correct .q-option-letter { background: var(–green); color: #fff; }
+.q-option.incorrect .q-option-letter { background: var(–red); color: #fff; }
+
+/* Short answer / essay input */
+.q-input {
+width: 100%;
+padding: 14px 16px;
+background: var(–bg);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+color: var(–text);
+font-size: .92rem;
+font-family: var(–font-body);
+resize: vertical;
+transition: var(–transition);
+line-height: 1.6;
+}
+.q-input:focus {
+outline: none;
+border-color: var(–accent);
+box-shadow: 0 0 0 2px var(–accent-glow);
+}
+.q-input-label {
+font-size: .75rem;
+color: var(–text-dim);
+margin-bottom: 6px;
+}
+
+/* Confidence selector */
+.confidence-row {
+display: flex;
+gap: 8px;
+margin-top: 16px;
+padding-top: 16px;
+border-top: 1px solid var(–border);
+}
+.confidence-btn {
+flex: 1;
+padding: 8px;
+border: 1px solid var(–border);
+background: var(–bg);
+border-radius: var(–radius-sm);
+color: var(–text-dim);
+font-size: .73rem;
+font-weight: 500;
+cursor: pointer;
+transition: var(–transition);
+font-family: var(–font-body);
+text-align: center;
+}
+.confidence-btn:hover { border-color: var(–text-dim); color: var(–text); }
+.confidence-btn.active-confident { border-color: var(–green); color: var(–green); background: var(–green-bg); }
+.confidence-btn.active-unsure { border-color: var(–amber); color: var(–amber); background: var(–amber-bg); }
+.confidence-btn.active-guessed { border-color: var(–red); color: var(–red); background: var(–red-bg); }
+
+/* ═══════════ FEEDBACK PANEL ═══════════ */
+.feedback {
+margin-top: 20px;
+animation: fadeUp .3s ease both;
+}
+.feedback-header {
+padding: 14px 18px;
+border-radius: var(–radius) var(–radius) 0 0;
+font-weight: 700;
+font-size: .92rem;
+}
+.feedback-correct {
+background: var(–green-bg);
+border: 1px solid #22c55e30;
+color: var(–green);
+}
+.feedback-incorrect {
+background: var(–red-bg);
+border: 1px solid #ef444430;
+color: var(–red);
+}
+.feedback-body {
+padding: 18px;
+background: var(–bg);
+border: 1px solid var(–border);
+border-top: none;
+border-radius: 0 0 var(–radius) var(–radius);
+}
+.feedback-section {
+margin-bottom: 14px;
+}
+.feedback-section:last-child { margin-bottom: 0; }
+.feedback-section-title {
+font-size: .72rem;
+font-weight: 600;
+color: var(–accent);
+text-transform: uppercase;
+letter-spacing: .5px;
+margin-bottom: 5px;
+}
+.feedback-text {
+font-size: .85rem;
+line-height: 1.65;
+color: var(–text);
+}
+.feedback-step {
+font-size: .82rem;
+color: var(–text);
+padding: 6px 0 6px 16px;
+border-left: 2px solid var(–border);
+margin-bottom: 4px;
+}
+.feedback-mistake {
+font-size: .8rem;
+color: var(–text-dim);
+padding: 4px 0;
+}
+.feedback-mistake::before {
+content: ’⚠ ’;
+color: var(–amber);
+}
+
+/* ═══════════ FLASHCARD ═══════════ */
+.flashcard-container {
+perspective: 1000px;
+margin-bottom: 20px;
+}
+.flashcard {
+position: relative;
+min-height: 280px;
+cursor: pointer;
+transform-style: preserve-3d;
+transition: transform .6s ease;
+}
+.flashcard.flipped { transform: rotateY(180deg); }
+.flashcard-face {
+position: absolute;
+inset: 0;
+backface-visibility: hidden;
+background: var(–bg-card);
+border: 1px solid var(–border);
+border-radius: var(–radius-lg);
+padding: 32px;
+display: flex;
+flex-direction: column;
+justify-content: center;
+align-items: center;
+text-align: center;
+}
+.flashcard-back {
+transform: rotateY(180deg);
+background: var(–bg-card-hover);
+}
+.flashcard-label {
+font-size: .7rem;
+color: var(–text-dim);
+text-transform: uppercase;
+letter-spacing: 1px;
+margin-bottom: 14px;
+}
+.flashcard-content {
+font-family: var(–font-display);
+font-size: 1.1rem;
+color: var(–text-bright);
+line-height: 1.7;
+}
+
+/* ═══════════ DASHBOARD STATS ═══════════ */
+.stat-grid {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+gap: 10px;
+margin-bottom: 20px;
+}
+.stat-card {
+background: var(–bg-card);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+padding: 16px;
+text-align: center;
+}
+.stat-value {
+font-family: var(–font-display);
+font-size: 1.6rem;
+font-weight: 700;
+color: var(–text-bright);
+}
+.stat-label {
+font-size: .72rem;
+color: var(–text-dim);
+margin-top: 2px;
+}
+.bar-chart { margin-bottom: 14px; }
+.bar-row {
+display: flex;
+align-items: center;
+gap: 10px;
+margin-bottom: 8px;
+}
+.bar-label {
+width: 120px;
+font-size: .78rem;
+color: var(–text);
+flex-shrink: 0;
+white-space: nowrap;
+overflow: hidden;
+text-overflow: ellipsis;
+}
+.bar-track {
+flex: 1;
+height: 8px;
+background: var(–border);
+border-radius: 4px;
+overflow: hidden;
+}
+.bar-fill {
+height: 100%;
+border-radius: 4px;
+transition: width .5s ease;
+}
+.bar-pct {
+width: 44px;
+text-align: right;
+font-size: .75rem;
+font-weight: 600;
+color: var(–text-dim);
+}
+
+/* ═══════════ TIMER ═══════════ */
+.timer {
+font-family: var(–font-mono);
+font-size: .78rem;
+color: var(–text-dim);
+display: flex;
+align-items: center;
+gap: 4px;
+}
+.timer-dot {
+width: 6px; height: 6px;
+border-radius: 50%;
+background: var(–green);
+animation: pulse 1.5s ease infinite;
+}
+
+/* ═══════════ ACTIONS ROW ═══════════ */
+.actions {
+display: flex;
+gap: 8px;
+margin-top: 16px;
+}
+.actions-spread {
+justify-content: space-between;
+}
+
+/* ═══════════ MARK SCHEME ═══════════ */
+.mark-scheme {
+background: var(–bg);
+border: 1px solid var(–border);
+border-radius: var(–radius);
+padding: 16px;
+margin-top: 12px;
+}
+.ms-point {
+font-size: .82rem;
+color: var(–text);
+padding: 4px 0 4px 18px;
+position: relative;
+}
+.ms-point::before {
+content: ‘✓’;
+position: absolute;
+left: 0;
+color: var(–green);
+font-weight: 700;
+}
+
+/* ═══════════ ESSAY FEEDBACK ═══════════ */
+.essay-feedback {
+border: 1px solid var(–border);
+border-radius: var(–radius);
+overflow: hidden;
+margin-top: 14px;
+}
+.ef-section {
+padding: 14px 16px;
+border-bottom: 1px solid var(–border);
+}
+.ef-section:last-child { border-bottom: none; }
+.ef-title {
+font-size: .72rem;
+font-weight: 600;
+text-transform: uppercase;
+letter-spacing: .5px;
+margin-bottom: 4px;
+}
+.ef-strengths .ef-title { color: var(–green); }
+.ef-improvements .ef-title { color: var(–amber); }
+.ef-score .ef-title { color: var(–accent); }
+.ef-text {
+font-size: .84rem;
+color: var(–text);
+line-height: 1.6;
+}
+
+/* ═══════════ EMPTY STATE ═══════════ */
+.empty-state {
+text-align: center;
+padding: 48px 20px;
+color: var(–text-dim);
+}
+.empty-icon {
+font-size: 2.5rem;
+margin-bottom: 12px;
+opacity: .4;
+}
+.empty-text {
+font-size: .9rem;
+}
+
+/* ═══════════ SCREEN VISIBILITY ═══════════ */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ═══════════ RESPONSIVE ═══════════ */
+@media (max-width: 600px) {
+#app { padding: 12px 10px 80px; }
+h1 { font-size: 1.4rem; }
+.q-card { padding: 18px; }
+.subject-grid { grid-template-columns: 1fr; }
+.stat-grid { grid-template-columns: repeat(2, 1fr); }
+.filter-row { gap: 6px; }
+.filter-select { min-width: 100px; font-size: .73rem; }
+.nav-tab { padding: 7px 8px; font-size: .7rem; }
+}
+
+/* ═══════════ HINT ═══════════ */
+.hint-box {
+background: var(–amber-bg);
+border: 1px solid #f59e0b30;
+border-radius: var(–radius);
+padding: 14px 16px;
+margin-top: 12px;
+animation: fadeUp .3s ease both;
+}
+.hint-label {
+font-size: .7rem;
+font-weight: 600;
+color: var(–amber);
+text-transform: uppercase;
+letter-spacing: .5px;
+margin-bottom: 4px;
+}
+.hint-text {
+font-size: .84rem;
+color: var(–text);
+line-height: 1.6;
+}
+
+/* ═══════════ EXAM TIP ═══════════ */
+.exam-tip {
+background: var(–purple-bg);
+border: 1px solid #a855f730;
+border-radius: var(–radius);
+padding: 12px 14px;
+margin-top: 10px;
+}
+.exam-tip-label {
+font-size: .68rem;
+font-weight: 600;
+color: var(–purple);
+text-transform: uppercase;
+letter-spacing: .5px;
+margin-bottom: 3px;
+}
+.exam-tip-text {
+font-size: .82rem;
+color: var(–text);
+line-height: 1.55;
+}
+
+/* Keyboard hint */
+.kbd-hint {
+font-size: .68rem;
+color: var(–text-dim);
+text-align: center;
+margin-top: 10px;
+}
+kbd {
+display: inline-block;
+padding: 1px 6px;
+background: var(–border);
+border-radius: 3px;
+font-family: var(–font-mono);
+font-size: .65rem;
+}
+</style>
+
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   SECTION 1: QUESTION BANK (Unified Schema)
+   ═══════════════════════════════════════════════════════════════════ */
+
+const SUBJECTS = [
+  { id: "as_physics", name: "AS Physics", level: "AS", syllabus: "9702", color: "#3b82f6", icon: "⚛" },
+  { id: "as_maths", name: "AS Mathematics", level: "AS", syllabus: "9709", color: "#a855f7", icon: "∑" },
+  { id: "ig_biology", name: "IGCSE Biology", level: "IGCSE", syllabus: "0610", color: "#22c55e", icon: "🧬" },
+  { id: "ig_chemistry", name: "IGCSE Chemistry", level: "IGCSE", syllabus: "0620", color: "#f59e0b", icon: "⚗" },
+  { id: "ig_economics", name: "IGCSE Economics", level: "IGCSE", syllabus: "0455", color: "#06b6d4", icon: "📊" },
+  { id: "ig_english", name: "IGCSE English Lit", level: "IGCSE", syllabus: "0475", color: "#ec4899", icon: "📖" },
+];
+
+const QUESTIONS = [
+  // ─── AS PHYSICS (8) ───
+  {id:"phy_001",subject:"as_physics",level:"AS",syllabus:"9702",paper:"Paper 1",topic:"Physical Quantities and Units",subtopic:"SI base units",syllabusRef:"1.1",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["units","dimensional analysis"],tags:["SI units","base units","pressure"],examFrequency:"high",prompt:"Which expression has the same SI base units as pressure?",options:["force / (length × speed)","force / (length × time)","mass / (length × time²)","mass × time² / length"],correctAnswer:2,explanation:"Pressure = Force / Area = kg m⁻¹ s⁻². Option C: mass/(length×time²) = kg/(m·s²) = kg m⁻¹ s⁻² ✓",commonMistakes:["Confusing force units with pressure units","Forgetting area contributes m²"],teachingSteps:["Write pressure = force / area","Expand force = kg·m·s⁻² and area = m²","Simplify to get kg·m⁻¹·s⁻²","Check each option by expanding units"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"phy_002",subject:"as_physics",level:"AS",syllabus:"9702",paper:"Paper 1",topic:"Kinematics",subtopic:"SUVAT equations",syllabusRef:"2.1",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["kinematics","equation selection"],tags:["SUVAT","free fall"],examFrequency:"high",prompt:"A ball is dropped from rest and falls for 2.0 s. How far does it fall? (g = 9.81 m s⁻²)",options:["9.81 m","4.91 m","19.62 m","39.24 m"],correctAnswer:2,explanation:"Using s = ut + ½gt² with u = 0: s = ½ × 9.81 × 2² = 19.62 m.",commonMistakes:["Using s = gt instead of ½gt²","Forgetting u = 0"],teachingSteps:["Identify: u = 0, a = g, t = 2.0 s","Select equation: s = ut + ½at²","Substitute: s = 0 + ½(9.81)(4.0)","Calculate: s = 19.62 m"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"phy_003",subject:"as_physics",level:"AS",syllabus:"9702",paper:"Paper 1",topic:"Dynamics",subtopic:"Newton's second law",syllabusRef:"3.1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["force","acceleration"],tags:["F=ma","dynamics"],examFrequency:"high",prompt:"A resultant force of 24 N acts on a 6.0 kg mass. What is the acceleration?",options:["144 m s⁻²","4.0 m s⁻²","0.25 m s⁻²","30 m s⁻²"],correctAnswer:1,explanation:"F = ma, so a = F/m = 24/6.0 = 4.0 m s⁻².",commonMistakes:["Multiplying force × mass","Using weight instead of mass"],teachingSteps:["Recall F = ma","Rearrange: a = F/m","Substitute: a = 24/6.0","a = 4.0 m s⁻²"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"phy_004",subject:"as_physics",level:"AS",syllabus:"9702",paper:"Paper 1",topic:"Work, Energy and Power",subtopic:"Kinetic energy",syllabusRef:"5.2",difficulty:"medium",difficultyScore:2,questionType:"calculation",marks:2,skillsTested:["energy","calculation"],tags:["KE","conservation"],examFrequency:"high",prompt:"A 1200 kg car travels at 25 m s⁻¹. Calculate its kinetic energy.",options:null,correctAnswer:"375000",explanation:"KE = ½mv² = ½ × 1200 × 25² = 375 000 J = 375 kJ.",commonMistakes:["Forgetting to square velocity","Forgetting the ½"],teachingSteps:["Write KE = ½mv²","Substitute: KE = ½ × 1200 × 625","Calculate: KE = 375 000 J"],aiMarkable:true,markScheme:["½mv² stated or used [1]","375 000 J or 375 kJ [1]"],sourceType:"original"},
+
+  {id:"phy_005",subject:"as_physics",level:"AS",syllabus:"9702",paper:"Paper 1",topic:"Waves",subtopic:"Wave equation",syllabusRef:"7.1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["waves"],tags:["wave speed","frequency"],examFrequency:"high",prompt:"A wave has frequency 250 Hz and wavelength 1.36 m. What is its speed?",options:["184 m s⁻¹","340 m s⁻¹","250 m s⁻¹","0.00544 m s⁻¹"],correctAnswer:1,explanation:"v = fλ = 250 × 1.36 = 340 m s⁻¹.",commonMistakes:["Dividing instead of multiplying","Confusing period and frequency"],teachingSteps:["Recall v = fλ","Substitute values","v = 250 × 1.36 = 340 m s⁻¹"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"phy_006",subject:"as_physics",level:"AS",syllabus:"9702",paper:"Paper 1",topic:"Electricity",subtopic:"Resistance",syllabusRef:"9.3",difficulty:"medium",difficultyScore:2,questionType:"short-answer",marks:3,skillsTested:["electricity","resistivity"],tags:["resistance","wire"],examFrequency:"medium",prompt:"A copper wire has length 2.0 m, cross-sectional area 1.0 × 10⁻⁶ m² and resistivity 1.7 × 10⁻⁸ Ω m. Calculate its resistance.",options:null,correctAnswer:"0.034",explanation:"R = ρL/A = (1.7×10⁻⁸ × 2.0) / (1.0×10⁻⁶) = 0.034 Ω.",commonMistakes:["Rearranging ρ = RA/L incorrectly","Powers of 10 errors"],teachingSteps:["Write R = ρL/A","Substitute: R = (1.7×10⁻⁸ × 2.0) / (1.0×10⁻⁶)","Calculate numerator: 3.4×10⁻⁸","Divide: 3.4×10⁻⁸ / 10⁻⁶ = 0.034 Ω"],aiMarkable:true,markScheme:["R = ρL/A used [1]","Correct substitution [1]","R = 0.034 Ω [1]"],sourceType:"original"},
+
+  {id:"phy_007",subject:"as_physics",level:"AS",syllabus:"9702",paper:"Paper 1",topic:"Superposition",subtopic:"Diffraction grating",syllabusRef:"8.4",difficulty:"hard",difficultyScore:3,questionType:"mcq",marks:1,skillsTested:["superposition","calculation"],tags:["diffraction grating","wavelength"],examFrequency:"medium",prompt:"A diffraction grating has 500 lines per mm. Light of wavelength 600 nm is used. What is the maximum observable order of diffraction?",options:["2","3","4","5"],correctAnswer:1,explanation:"d = 1/(500×10³) = 2×10⁻⁶ m. n_max = d/λ = 2×10⁻⁶/6×10⁻⁷ = 3.33, so n_max = 3.",commonMistakes:["Not finding d from lines/mm","Forgetting sinθ ≤ 1"],teachingSteps:["Calculate d = 1/(500 000) m = 2×10⁻⁶ m","Use d sinθ = nλ with sinθ_max = 1","n_max = d/λ = 2×10⁻⁶ / 6×10⁻⁷ = 3.33","Round down: n_max = 3"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"phy_008",subject:"as_physics",level:"AS",syllabus:"9702",paper:"Paper 2",topic:"Particle Physics",subtopic:"Quarks",syllabusRef:"11.2",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["particles"],tags:["quarks","proton"],examFrequency:"medium",prompt:"A proton consists of which quarks?",options:["uud","udd","uuu","uds"],correctAnswer:0,explanation:"Proton = up + up + down (uud). Charge: +⅔ +⅔ -⅓ = +1.",commonMistakes:["Mixing up proton and neutron compositions","Getting quark charges wrong"],teachingSteps:["Proton charge = +1e","Up quark = +⅔e, down quark = -⅓e","Check: uud = +⅔+⅔-⅓ = +1 ✓","Neutron would be udd = 0"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  // ─── AS MATHEMATICS (8) ───
+  {id:"math_001",subject:"as_maths",level:"AS",syllabus:"9709",paper:"Paper 1",topic:"Quadratics",subtopic:"Completing the square",syllabusRef:"1.2",difficulty:"medium",difficultyScore:2,questionType:"calculation",marks:3,skillsTested:["algebra","manipulation"],tags:["quadratic","completing square"],examFrequency:"high",prompt:"Express x² + 6x + 2 in the form (x + a)² + b. State the values of a and b.",options:null,correctAnswer:"a=3, b=-7",explanation:"x² + 6x + 2 = (x + 3)² - 9 + 2 = (x + 3)² - 7. So a = 3, b = -7.",commonMistakes:["Sign error: writing +9 instead of -9","Forgetting to add the constant term"],teachingSteps:["Halve the coefficient of x: 6/2 = 3","Write (x + 3)² = x² + 6x + 9","Adjust: x² + 6x + 2 = (x+3)² - 9 + 2","Simplify: (x+3)² - 7"],aiMarkable:true,markScheme:["(x + 3)² seen [1]","−9 + 2 attempted [1]","a = 3, b = −7 [1]"],sourceType:"original"},
+
+  {id:"math_002",subject:"as_maths",level:"AS",syllabus:"9709",paper:"Paper 1",topic:"Coordinate Geometry",subtopic:"Straight lines",syllabusRef:"2.1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["gradient","coordinates"],tags:["gradient","midpoint"],examFrequency:"high",prompt:"What is the gradient of the line joining (1, 3) and (5, 11)?",options:["2","4","½","8"],correctAnswer:0,explanation:"m = (y₂-y₁)/(x₂-x₁) = (11-3)/(5-1) = 8/4 = 2.",commonMistakes:["Subtracting coordinates in wrong order","Dividing Δx by Δy"],teachingSteps:["Use m = (y₂-y₁)/(x₂-x₁)","Substitute: (11-3)/(5-1)","Calculate: 8/4 = 2"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"math_003",subject:"as_maths",level:"AS",syllabus:"9709",paper:"Paper 1",topic:"Functions",subtopic:"Domain and range",syllabusRef:"3.1",difficulty:"medium",difficultyScore:2,questionType:"short-answer",marks:2,skillsTested:["functions"],tags:["range","quadratic"],examFrequency:"medium",prompt:"f(x) = x² − 4x + 7 for x ∈ ℝ. Find the range of f.",options:null,correctAnswer:"f(x) ≥ 3",explanation:"Complete the square: f(x) = (x-2)² + 3. Minimum value is 3. Range: f(x) ≥ 3.",commonMistakes:["Not completing the square","Writing range as x ≥ 3 instead of f(x) ≥ 3"],teachingSteps:["Complete the square: (x-2)² + 3","Minimum of (x-2)² is 0, when x = 2","Minimum of f(x) is 0 + 3 = 3","Range: f(x) ≥ 3"],aiMarkable:true,markScheme:["Completed square form [1]","Range: f(x) ≥ 3 [1]"],sourceType:"original"},
+
+  {id:"math_004",subject:"as_maths",level:"AS",syllabus:"9709",paper:"Paper 1",topic:"Differentiation",subtopic:"Basic rules",syllabusRef:"7.1",difficulty:"easy",difficultyScore:1,questionType:"calculation",marks:2,skillsTested:["calculus"],tags:["differentiation","power rule"],examFrequency:"high",prompt:"Differentiate y = 3x⁴ − 2x² + 5x.",options:null,correctAnswer:"12x³ − 4x + 5",explanation:"dy/dx = 12x³ − 4x + 5. Apply the power rule to each term.",commonMistakes:["Forgetting to reduce the power by 1","Not differentiating the constant coefficient"],teachingSteps:["Apply power rule: d/dx(xⁿ) = nxⁿ⁻¹","3x⁴ → 12x³","−2x² → −4x","5x → 5"],aiMarkable:true,markScheme:["At least two terms correct [1]","All three terms correct [1]"],sourceType:"original"},
+
+  {id:"math_005",subject:"as_maths",level:"AS",syllabus:"9709",paper:"Paper 1",topic:"Integration",subtopic:"Definite integrals",syllabusRef:"8.1",difficulty:"medium",difficultyScore:2,questionType:"calculation",marks:3,skillsTested:["calculus","integration"],tags:["definite integral"],examFrequency:"high",prompt:"Evaluate ∫₁³ (2x + 1) dx.",options:null,correctAnswer:"10",explanation:"∫(2x+1)dx = x² + x + C. [x² + x]₁³ = (9+3) − (1+1) = 12 − 2 = 10.",commonMistakes:["Forgetting to evaluate at both limits","Integration errors with constants"],teachingSteps:["Integrate: x² + x","Upper limit: 3² + 3 = 12","Lower limit: 1² + 1 = 2","Subtract: 12 − 2 = 10"],aiMarkable:true,markScheme:["Correct integral x² + x [1]","Substitution of limits [1]","Answer = 10 [1]"],sourceType:"original"},
+
+  {id:"math_006",subject:"as_maths",level:"AS",syllabus:"9709",paper:"Paper 1",topic:"Trigonometry",subtopic:"Identities",syllabusRef:"5.1",difficulty:"hard",difficultyScore:3,questionType:"short-answer",marks:4,skillsTested:["trigonometry","proof"],tags:["trig identity","proof"],examFrequency:"medium",prompt:"Solve 2sin²θ + sinθ − 1 = 0 for 0° ≤ θ ≤ 360°.",options:null,correctAnswer:"30°, 150°, 270°",explanation:"Let s = sinθ. 2s² + s − 1 = 0 → (2s−1)(s+1) = 0. sinθ = ½ → θ = 30°, 150°. sinθ = −1 → θ = 270°.",commonMistakes:["Missing solutions in different quadrants","Factoring incorrectly"],teachingSteps:["Substitute s = sinθ","Factor: (2s−1)(s+1) = 0","s = ½ or s = −1","Find all θ in range: 30°, 150°, 270°"],aiMarkable:true,markScheme:["Correct factorisation [1]","sinθ = ½ and sinθ = −1 [1]","30° and 150° [1]","270° [1]"],sourceType:"original"},
+
+  {id:"math_007",subject:"as_maths",level:"AS",syllabus:"9709",paper:"Paper 1",topic:"Series",subtopic:"Arithmetic progression",syllabusRef:"4.1",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["sequences"],tags:["AP","nth term"],examFrequency:"high",prompt:"An arithmetic sequence has first term 5 and common difference 3. What is the 20th term?",options:["60","62","65","57"],correctAnswer:1,explanation:"aₙ = a + (n−1)d = 5 + 19(3) = 5 + 57 = 62.",commonMistakes:["Using n instead of n−1","Adding instead of multiplying d"],teachingSteps:["Use aₙ = a + (n−1)d","a₂₀ = 5 + (20−1)(3)","= 5 + 57 = 62"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"math_008",subject:"as_maths",level:"AS",syllabus:"9709",paper:"Paper 6",topic:"Statistics",subtopic:"Probability",syllabusRef:"S1.5",difficulty:"medium",difficultyScore:2,questionType:"calculation",marks:2,skillsTested:["probability"],tags:["independent events"],examFrequency:"high",prompt:"Two fair dice are thrown. What is the probability that the sum is 7?",options:null,correctAnswer:"1/6",explanation:"Combinations summing to 7: (1,6)(2,5)(3,4)(4,3)(5,2)(6,1) = 6 out of 36. P = 6/36 = 1/6.",commonMistakes:["Counting combinations wrong","Using 12 instead of 36 total outcomes"],teachingSteps:["Total outcomes = 6 × 6 = 36","List pairs summing to 7","Count: 6 favourable outcomes","P = 6/36 = 1/6"],aiMarkable:true,markScheme:["6 favourable or 36 total [1]","1/6 or equivalent [1]"],sourceType:"original"},
+
+  // ─── IGCSE BIOLOGY (6) ───
+  {id:"bio_001",subject:"ig_biology",level:"IGCSE",syllabus:"0610",paper:"Paper 2",topic:"Cell Structure",subtopic:"Plant vs animal cells",syllabusRef:"2.1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["recall"],tags:["cells","organelles"],examFrequency:"high",prompt:"Which structure is found in plant cells but NOT in animal cells?",options:["Nucleus","Cell wall","Mitochondria","Cell membrane"],correctAnswer:1,explanation:"Cell walls made of cellulose are unique to plant cells. Both plant and animal cells have nuclei, mitochondria, and cell membranes.",commonMistakes:["Confusing cell wall with cell membrane","Thinking mitochondria are plant-only"],teachingSteps:["Plant cells have: cell wall, chloroplasts, large vacuole","Animal cells lack these three","Both have: nucleus, membrane, mitochondria, ribosomes"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"bio_002",subject:"ig_biology",level:"IGCSE",syllabus:"0610",paper:"Paper 2",topic:"Enzymes",subtopic:"Lock and key model",syllabusRef:"5.1",difficulty:"medium",difficultyScore:2,questionType:"short-answer",marks:3,skillsTested:["explanation","application"],tags:["enzymes","denaturation"],examFrequency:"high",prompt:"Explain why enzymes stop working at high temperatures.",options:null,correctAnswer:null,explanation:"At high temperatures, the kinetic energy causes bonds holding the enzyme's tertiary structure to break. The active site changes shape (denatures) and the substrate can no longer fit, so the reaction cannot be catalysed.",commonMistakes:["Saying the enzyme 'dies'","Confusing denaturation with reversible effects of low temperature"],teachingSteps:["Enzymes have a specific 3D shape","High temperature breaks bonds in the enzyme","Active site changes shape = denaturation","Substrate no longer fits = no reaction"],aiMarkable:true,markScheme:["Bonds in enzyme break / tertiary structure disrupted [1]","Active site changes shape [1]","Substrate no longer fits / complementary [1]"],sourceType:"original"},
+
+  {id:"bio_003",subject:"ig_biology",level:"IGCSE",syllabus:"0610",paper:"Paper 4",topic:"Photosynthesis",subtopic:"Limiting factors",syllabusRef:"6.1",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["application"],tags:["photosynthesis","graphs"],examFrequency:"high",prompt:"A plant is in bright light with plenty of CO₂. Which factor is most likely to be limiting photosynthesis?",options:["Light intensity","Carbon dioxide concentration","Temperature","Water availability"],correctAnswer:2,explanation:"With bright light and plenty of CO₂, temperature becomes the limiting factor as it affects enzyme activity in the Calvin cycle.",commonMistakes:["Choosing light when it's already bright","Ignoring enzyme dependency on temperature"],teachingSteps:["Identify which factors are already abundant","Light = bright ✓, CO₂ = plenty ✓","Temperature controls enzyme rate","Temperature is the limiting factor"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"bio_004",subject:"ig_biology",level:"IGCSE",syllabus:"0610",paper:"Paper 2",topic:"Respiration",subtopic:"Aerobic vs anaerobic",syllabusRef:"7.1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["recall","comparison"],tags:["respiration","ATP"],examFrequency:"high",prompt:"Which is a product of anaerobic respiration in yeast?",options:["Oxygen","Carbon dioxide and ethanol","Lactic acid only","Water and glucose"],correctAnswer:1,explanation:"In yeast, anaerobic respiration produces ethanol and carbon dioxide. In animals, it produces lactic acid.",commonMistakes:["Confusing yeast and animal anaerobic products","Including oxygen as a product"],teachingSteps:["Anaerobic = without oxygen","In yeast: glucose → ethanol + CO₂","In animals: glucose → lactic acid","Don't mix these up!"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"bio_005",subject:"ig_biology",level:"IGCSE",syllabus:"0610",paper:"Paper 4",topic:"Genetics",subtopic:"Monohybrid crosses",syllabusRef:"16.1",difficulty:"hard",difficultyScore:3,questionType:"short-answer",marks:4,skillsTested:["genetics","Punnett square"],tags:["inheritance","dominant","recessive"],examFrequency:"high",prompt:"In pea plants, tall (T) is dominant over short (t). Two heterozygous plants are crossed. What ratio of tall to short offspring is expected?",options:null,correctAnswer:"3:1",explanation:"Tt × Tt → TT, Tt, Tt, tt. Phenotype ratio: 3 tall : 1 short.",commonMistakes:["Writing genotype ratio instead of phenotype ratio","Forgetting heterozygous means Tt"],teachingSteps:["Parents: Tt × Tt","Draw Punnett square","Offspring: TT, Tt, Tt, tt","Phenotypes: 3 tall (TT+Tt+Tt) : 1 short (tt)"],aiMarkable:true,markScheme:["Correct parental genotypes [1]","Punnett square correct [1]","All four offspring genotypes [1]","3:1 ratio stated [1]"],sourceType:"original"},
+
+  {id:"bio_006",subject:"ig_biology",level:"IGCSE",syllabus:"0610",paper:"Paper 4",topic:"Ecology",subtopic:"Food chains",syllabusRef:"19.1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["ecology"],tags:["food chain","energy transfer"],examFrequency:"medium",prompt:"In a food chain, what happens to the amount of energy at each trophic level?",options:["It increases","It stays the same","It decreases","It doubles"],correctAnswer:2,explanation:"Energy decreases at each trophic level because organisms use energy for life processes (respiration) and some is lost as heat.",commonMistakes:["Thinking energy increases up the chain","Forgetting energy loss through respiration"],teachingSteps:["Energy enters via producers (photosynthesis)","At each level, ~90% is lost","Lost to: respiration, heat, excretion","Only ~10% passes to next level"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  // ─── IGCSE CHEMISTRY (6) ───
+  {id:"chem_001",subject:"ig_chemistry",level:"IGCSE",syllabus:"0620",paper:"Paper 2",topic:"Atomic Structure",subtopic:"Subatomic particles",syllabusRef:"3.1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["recall"],tags:["atoms","protons","electrons"],examFrequency:"high",prompt:"An atom of sodium-23 has 11 protons. How many neutrons does it have?",options:["11","12","23","34"],correctAnswer:1,explanation:"Neutrons = mass number − proton number = 23 − 11 = 12.",commonMistakes:["Adding instead of subtracting","Confusing mass number with atomic number"],teachingSteps:["Mass number = protons + neutrons","23 = 11 + neutrons","Neutrons = 23 − 11 = 12"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"chem_002",subject:"ig_chemistry",level:"IGCSE",syllabus:"0620",paper:"Paper 2",topic:"Bonding",subtopic:"Ionic bonding",syllabusRef:"4.2",difficulty:"medium",difficultyScore:2,questionType:"short-answer",marks:3,skillsTested:["bonding","explanation"],tags:["ionic","electrons"],examFrequency:"high",prompt:"Describe what happens to the electrons when sodium reacts with chlorine to form sodium chloride.",options:null,correctAnswer:null,explanation:"Sodium loses one electron from its outer shell to form Na⁺. Chlorine gains this electron to form Cl⁻. The oppositely charged ions attract each other (ionic bond).",commonMistakes:["Saying atoms 'share' electrons (that's covalent)","Forgetting to mention the electrostatic attraction"],teachingSteps:["Na has 1 outer electron → loses it → Na⁺","Cl has 7 outer electrons → gains 1 → Cl⁻","Both now have full outer shells","Na⁺ and Cl⁻ attract = ionic bond"],aiMarkable:true,markScheme:["Sodium loses electron / forms Na⁺ [1]","Chlorine gains electron / forms Cl⁻ [1]","Electrostatic attraction between ions [1]"],sourceType:"original"},
+
+  {id:"chem_003",subject:"ig_chemistry",level:"IGCSE",syllabus:"0620",paper:"Paper 4",topic:"Stoichiometry",subtopic:"Moles",syllabusRef:"5.1",difficulty:"hard",difficultyScore:3,questionType:"calculation",marks:3,skillsTested:["moles","calculation"],tags:["moles","mass","Mr"],examFrequency:"high",prompt:"Calculate the number of moles in 5.3 g of Na₂CO₃. (Aᵣ: Na = 23, C = 12, O = 16)",options:null,correctAnswer:"0.050",explanation:"Mr of Na₂CO₃ = 2(23) + 12 + 3(16) = 106. Moles = mass/Mr = 5.3/106 = 0.050 mol.",commonMistakes:["Calculating Mr incorrectly","Dividing Mr by mass instead of mass by Mr"],teachingSteps:["Find Mr: 2(23) + 12 + 3(16) = 106","Use n = m/Mr","n = 5.3/106","n = 0.050 mol"],aiMarkable:true,markScheme:["Mr = 106 [1]","n = m/Mr used [1]","0.050 mol [1]"],sourceType:"original"},
+
+  {id:"chem_004",subject:"ig_chemistry",level:"IGCSE",syllabus:"0620",paper:"Paper 2",topic:"Acids and Bases",subtopic:"pH scale",syllabusRef:"8.1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["recall"],tags:["acids","pH","indicators"],examFrequency:"high",prompt:"What is the pH of a neutral solution?",options:["0","7","14","1"],correctAnswer:1,explanation:"Neutral pH is 7. Acids are below 7, alkalis are above 7.",commonMistakes:["Thinking neutral is pH 0","Confusing pH scale direction"],teachingSteps:["pH scale: 0–14","Acids: pH < 7","Neutral: pH = 7","Alkalis: pH > 7"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"chem_005",subject:"ig_chemistry",level:"IGCSE",syllabus:"0620",paper:"Paper 4",topic:"Electrolysis",subtopic:"Products",syllabusRef:"6.2",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["electrolysis"],tags:["electrolysis","electrodes"],examFrequency:"medium",prompt:"During the electrolysis of concentrated sodium chloride solution, what gas is produced at the positive electrode (anode)?",options:["Hydrogen","Oxygen","Chlorine","Sodium"],correctAnswer:2,explanation:"At the anode, chloride ions are discharged: 2Cl⁻ → Cl₂ + 2e⁻. Chlorine gas is produced.",commonMistakes:["Confusing anode and cathode products","Thinking sodium is produced at an electrode"],teachingSteps:["Anode = positive electrode","Negative ions go to anode","Cl⁻ ions are discharged","2Cl⁻ → Cl₂ + 2e⁻"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"chem_006",subject:"ig_chemistry",level:"IGCSE",syllabus:"0620",paper:"Paper 2",topic:"Organic Chemistry",subtopic:"Alkanes",syllabusRef:"11.1",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["organic chemistry"],tags:["alkanes","hydrocarbons"],examFrequency:"medium",prompt:"What is the molecular formula of butane?",options:["C₃H₈","C₄H₈","C₄H₁₀","C₅H₁₂"],correctAnswer:2,explanation:"Butane is an alkane (CₙH₂ₙ₊₂). For n = 4: C₄H₁₀.",commonMistakes:["Using the alkene formula CₙH₂ₙ","Miscounting carbons"],teachingSteps:["Alkane general formula: CₙH₂ₙ₊₂","'But-' prefix = 4 carbons","H = 2(4) + 2 = 10","Molecular formula: C₄H₁₀"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  // ─── IGCSE ECONOMICS (6) ───
+  {id:"econ_001",subject:"ig_economics",level:"IGCSE",syllabus:"0455",paper:"Paper 1",topic:"Basic Economic Problem",subtopic:"Scarcity and choice",syllabusRef:"1.1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["concepts"],tags:["scarcity","opportunity cost"],examFrequency:"high",prompt:"The basic economic problem arises because:",options:["Governments do not plan properly","Resources are unlimited but wants are limited","Resources are limited but wants are unlimited","People are greedy"],correctAnswer:2,explanation:"The fundamental economic problem is that resources (factors of production) are scarce/limited while human wants are unlimited.",commonMistakes:["Reversing limited/unlimited","Choosing a moral rather than economic answer"],teachingSteps:["Resources = land, labour, capital, enterprise","These are finite/scarce","Human wants are infinite","This creates the need to choose = scarcity"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"econ_002",subject:"ig_economics",level:"IGCSE",syllabus:"0455",paper:"Paper 1",topic:"Demand and Supply",subtopic:"Demand shifts",syllabusRef:"2.2",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["analysis","diagrams"],tags:["demand","shift"],examFrequency:"high",prompt:"If the price of a substitute good increases, what happens to the demand curve for the original good?",options:["Shifts left","Stays the same","Movement along the curve","Shifts right"],correctAnswer:3,explanation:"If a substitute becomes more expensive, consumers switch to the original good, increasing its demand (rightward shift).",commonMistakes:["Confusing shift with movement along curve","Confusing substitutes and complements"],teachingSteps:["Substitute = alternative good","Substitute price ↑ → people buy less of it","They buy more of original good instead","Demand curve shifts right"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"econ_003",subject:"ig_economics",level:"IGCSE",syllabus:"0455",paper:"Paper 2",topic:"Market Failure",subtopic:"Externalities",syllabusRef:"3.3",difficulty:"medium",difficultyScore:2,questionType:"short-answer",marks:4,skillsTested:["analysis","evaluation"],tags:["externalities","market failure"],examFrequency:"high",prompt:"Explain what is meant by a negative externality and give one example.",options:null,correctAnswer:null,explanation:"A negative externality is a cost imposed on third parties who are not directly involved in the production or consumption of a good. Example: Factory pollution affecting local residents' health.",commonMistakes:["Confusing private and external costs","Not identifying the third party"],teachingSteps:["Externality = effect on third parties","Negative = harmful/costly","Third party = not buyer or seller","Example: pollution, noise, passive smoking"],aiMarkable:true,markScheme:["Cost/harm to third parties [1]","Not involved in transaction [1]","Valid example [1]","Explanation of how third party is affected [1]"],sourceType:"original"},
+
+  {id:"econ_004",subject:"ig_economics",level:"IGCSE",syllabus:"0455",paper:"Paper 1",topic:"Price Elasticity",subtopic:"PED",syllabusRef:"2.5",difficulty:"hard",difficultyScore:3,questionType:"calculation",marks:2,skillsTested:["elasticity","calculation"],tags:["PED","elasticity"],examFrequency:"high",prompt:"The price of a good rises from $10 to $12. Quantity demanded falls from 200 to 160. Calculate the price elasticity of demand (PED).",options:null,correctAnswer:"-1",explanation:"% change in Qd = (160-200)/200 × 100 = -20%. % change in price = (12-10)/10 × 100 = 20%. PED = -20/20 = -1.",commonMistakes:["Forgetting the negative sign","Using final values instead of original for %change"],teachingSteps:["% ΔQd = (160-200)/200 × 100 = -20%","% ΔP = (12-10)/10 × 100 = +20%","PED = %ΔQd / %ΔP","PED = -20/20 = -1 (unit elastic)"],aiMarkable:true,markScheme:["Correct percentage changes [1]","PED = −1 [1]"],sourceType:"original"},
+
+  {id:"econ_005",subject:"ig_economics",level:"IGCSE",syllabus:"0455",paper:"Paper 1",topic:"Government Intervention",subtopic:"Taxation",syllabusRef:"4.1",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["policy analysis"],tags:["tax","government"],examFrequency:"medium",prompt:"An indirect tax on cigarettes would most likely:",options:["Shift the demand curve left","Shift the supply curve left","Increase supply","Reduce price"],correctAnswer:1,explanation:"An indirect tax increases production costs, shifting the supply curve leftward (upward). This leads to higher price and lower quantity.",commonMistakes:["Thinking tax shifts demand","Confusing direct and indirect tax effects"],teachingSteps:["Indirect tax = tax on goods/services","Added to production cost","Supply curve shifts left/up","Price rises, quantity falls"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"econ_006",subject:"ig_economics",level:"IGCSE",syllabus:"0455",paper:"Paper 2",topic:"International Trade",subtopic:"Trade barriers",syllabusRef:"7.1",difficulty:"medium",difficultyScore:2,questionType:"essay",marks:6,skillsTested:["evaluation","extended writing"],tags:["trade","protectionism"],examFrequency:"medium",prompt:"Discuss whether a government should use tariffs to protect domestic industries.",options:null,correctAnswer:null,explanation:"Arguments for: protects infant industries, preserves jobs, prevents dumping, maintains strategic industries. Arguments against: higher prices for consumers, retaliation from trading partners, inefficiency, reduced choice. Balanced conclusion needed.",commonMistakes:["Only giving one side of the argument","Not providing a conclusion"],teachingSteps:["Define tariff: tax on imports","Arguments FOR protection (2-3 points)","Arguments AGAINST protection (2-3 points)","Conclude with balanced evaluation"],aiMarkable:true,markScheme:["Definition of tariff [1]","Arguments for (max 2 marks) [2]","Arguments against (max 2 marks) [2]","Balanced conclusion [1]"],sourceType:"original"},
+
+  // ─── IGCSE ENGLISH LITERATURE (4) ───
+  {id:"eng_001",subject:"ig_english",level:"IGCSE",syllabus:"0475",paper:"Paper 1",topic:"Poetry Analysis",subtopic:"Poetic devices",syllabusRef:"P1",difficulty:"easy",difficultyScore:1,questionType:"mcq",marks:1,skillsTested:["literary devices"],tags:["poetry","techniques"],examFrequency:"high",prompt:"'The wind howled through the trees' is an example of:",options:["Simile","Metaphor","Personification","Alliteration"],correctAnswer:2,explanation:"Personification gives human qualities to non-human things. 'Howled' is a human/animal action attributed to the wind.",commonMistakes:["Confusing personification with metaphor","Not identifying the human quality"],teachingSteps:["Personification = human qualities to non-human","'Howled' = human/animal action","Applied to 'wind' = non-human","Therefore = personification"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"eng_002",subject:"ig_english",level:"IGCSE",syllabus:"0475",paper:"Paper 1",topic:"Prose Analysis",subtopic:"Character analysis",syllabusRef:"P1",difficulty:"medium",difficultyScore:2,questionType:"essay",marks:8,skillsTested:["analysis","PEE paragraphs"],tags:["character","analysis","essay"],examFrequency:"high",prompt:"How does the writer use language to create a sense of tension in the following passage? 'The door creaked open. Shadows stretched across the floor like dark fingers reaching for her ankles. She held her breath.'",options:null,correctAnswer:null,explanation:"Tension is created through: auditory imagery ('creaked'), a simile comparing shadows to 'dark fingers' suggesting threat, personification of shadows 'reaching', short sentence 'She held her breath' creating urgency.",commonMistakes:["Identifying techniques without explaining their effect","Retelling rather than analysing"],teachingSteps:["Point: Identify a technique","Evidence: Quote the exact words","Explain: How does it create tension?","Repeat for 2-3 techniques","Link back to the question"],aiMarkable:true,markScheme:["Identifies relevant language features [2]","Selects appropriate quotations [2]","Explains effect on reader [2]","Focused analysis linked to tension [2]"],sourceType:"original"},
+
+  {id:"eng_003",subject:"ig_english",level:"IGCSE",syllabus:"0475",paper:"Paper 2",topic:"Drama",subtopic:"Themes",syllabusRef:"P2",difficulty:"medium",difficultyScore:2,questionType:"mcq",marks:1,skillsTested:["themes"],tags:["drama","themes"],examFrequency:"medium",prompt:"In Shakespeare's plays, dramatic irony occurs when:",options:["Two characters argue on stage","The audience knows something a character does not","A character speaks directly to the audience","The plot has a surprising twist"],correctAnswer:1,explanation:"Dramatic irony is when the audience has knowledge that characters on stage do not, creating tension or humour.",commonMistakes:["Confusing dramatic irony with a soliloquy","Confusing it with a plot twist"],teachingSteps:["Dramatic irony = audience knows more","Character is unaware of key information","Creates tension, humour, or pathos","Different from verbal irony or situational irony"],aiMarkable:false,markScheme:null,sourceType:"original"},
+
+  {id:"eng_004",subject:"ig_english",level:"IGCSE",syllabus:"0475",paper:"Paper 1",topic:"Prose Analysis",subtopic:"Writer's effects",syllabusRef:"P1",difficulty:"hard",difficultyScore:3,questionType:"short-answer",marks:4,skillsTested:["analysis","language"],tags:["imagery","writer's craft"],examFrequency:"high",prompt:"Explain the effect of the metaphor: 'Time is a thief that steals our youth.'",options:null,correctAnswer:null,explanation:"The metaphor compares time to a thief, suggesting time takes away youth without permission, creating a sense of loss and inevitability. 'Steals' implies something valuable is being taken against our will.",commonMistakes:["Just identifying it as a metaphor without analysing effect","Not exploring connotations of 'thief' and 'steals'"],teachingSteps:["Identify: metaphor comparing time to a thief","Connotation of 'thief': criminal, takes without asking","'Steals' implies loss is unwanted, inevitable","Effect: reader feels time passing is a kind of loss"],aiMarkable:true,markScheme:["Identifies comparison (time/thief) [1]","Explores connotation of 'thief' [1]","Explores 'steals' and loss [1]","Comments on reader's response/effect [1]"],sourceType:"original"},
+];
+
+/* ═══════════════════════════════════════════════════════════════════
+   SECTION 2: STATE MANAGEMENT
+   ═══════════════════════════════════════════════════════════════════ */
+
+const STATE_KEY = 'rev_platform_v2';
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem(STATE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return defaultState();
+}
+
+function defaultState() {
+  return {
+    currentScreen: 'home',
+    selectedSubject: null,
+    filters: { paper: 'all', topic: 'all', difficulty: 'all', questionType: 'all' },
+    mode: 'practice',
+    quizConfig: { count: 10 },
+    quiz: null,
+    history: [],
+    mistakes: [],
+    stats: {},
+    topicStats: {},
+    confidenceLog: [],
+  };
+}
+
+let state = loadState();
+
+function saveState() {
+  try { localStorage.setItem(STATE_KEY, JSON.stringify(state)); } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SECTION 3: FILTERING & SELECTION
+   ═══════════════════════════════════════════════════════════════════ */
+
+function filterQuestions(subject, filters) {
+  return QUESTIONS.filter(q => {
+    if (subject && q.subject !== subject) return false;
+    if (filters.paper !== 'all' && q.paper !== filters.paper) return false;
+    if (filters.topic !== 'all' && q.topic !== filters.topic) return false;
+    if (filters.difficulty !== 'all' && q.difficulty !== filters.difficulty) return false;
+    if (filters.questionType !== 'all' && q.questionType !== filters.questionType) return false;
+    return true;
+  });
+}
+
+function getTopicsForSubject(subjectId) {
+  const topics = new Set();
+  QUESTIONS.filter(q => q.subject === subjectId).forEach(q => topics.add(q.topic));
+  return [...topics];
+}
+
+function getPapersForSubject(subjectId) {
+  const papers = new Set();
+  QUESTIONS.filter(q => q.subject === subjectId).forEach(q => papers.add(q.paper));
+  return [...papers];
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function selectQuestions(pool, count, mode) {
+  if (mode === 'weakness') {
+    pool.sort((a, b) => {
+      const aWrong = (state.topicStats[a.topic]?.wrong || 0);
+      const bWrong = (state.topicStats[b.topic]?.wrong || 0);
+      return bWrong - aWrong;
+    });
+    return pool.slice(0, count);
+  }
+  if (mode === 'mistakes') {
+    const mistakeIds = new Set(state.mistakes.map(m => m.id));
+    pool = pool.filter(q => mistakeIds.has(q.id));
+  }
+  return shuffle(pool).slice(0, count);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SECTION 4: PERSISTENCE & ANALYTICS
+   ═══════════════════════════════════════════════════════════════════ */
+
+function recordAnswer(question, userAnswer, correct, timeMs, confidence) {
+  const entry = {
+    id: question.id,
+    subject: question.subject,
+    topic: question.topic,
+    difficulty: question.difficulty,
+    correct,
+    confidence,
+    timeMs,
+    timestamp: Date.now(),
+  };
+  state.history.push(entry);
+
+  // Update stats
+  if (!state.stats[question.subject]) state.stats[question.subject] = { correct: 0, total: 0 };
+  state.stats[question.subject].total++;
+  if (correct) state.stats[question.subject].correct++;
+
+  // Update topic stats
+  if (!state.topicStats[question.topic]) state.topicStats[question.topic] = { correct: 0, wrong: 0 };
+  if (correct) state.topicStats[question.topic].correct++;
+  else {
+    state.topicStats[question.topic].wrong++;
+    if (!state.mistakes.find(m => m.id === question.id)) {
+      state.mistakes.push({ id: question.id, count: 1, lastWrong: Date.now() });
+    } else {
+      const m = state.mistakes.find(m => m.id === question.id);
+      m.count++;
+      m.lastWrong = Date.now();
+    }
+  }
+
+  // Remove from mistakes if answered correctly
+  if (correct) {
+    state.mistakes = state.mistakes.filter(m => m.id !== question.id);
+  }
+
+  saveState();
+}
+
+function getOverallAccuracy() {
+  const total = state.history.length;
+  if (!total) return 0;
+  const correct = state.history.filter(h => h.correct).length;
+  return Math.round((correct / total) * 100);
+}
+
+function getSubjectAccuracy(subjectId) {
+  const s = state.stats[subjectId];
+  if (!s || !s.total) return 0;
+  return Math.round((s.correct / s.total) * 100);
+}
+
+function getWeakTopics(limit = 5) {
+  return Object.entries(state.topicStats)
+    .filter(([, v]) => (v.correct + v.wrong) >= 2)
+    .map(([topic, v]) => ({ topic, pct: Math.round(v.correct / (v.correct + v.wrong) * 100), total: v.correct + v.wrong }))
+    .sort((a, b) => a.pct - b.pct)
+    .slice(0, limit);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SECTION 5: TUTOR / AI-STYLE FEEDBACK
+   ═══════════════════════════════════════════════════════════════════ */
+
+function generateFeedback(question, userAnswer, correct) {
+  const fb = { correct };
+
+  if (question.questionType === 'mcq') {
+    fb.correctText = question.options[question.correctAnswer];
+    if (!correct && typeof userAnswer === 'number') {
+      fb.userText = question.options[userAnswer];
+    }
+  }
+
+  fb.explanation = question.explanation;
+  fb.steps = question.teachingSteps || [];
+  fb.mistakes = question.commonMistakes || [];
+  fb.examTip = generateExamTip(question);
+  fb.nextAdvice = correct
+    ? "Great work! Try a harder question on this topic next."
+    : `Review ${question.subtopic} before attempting similar questions.`;
+
+  return fb;
+}
+
+function generateExamTip(q) {
+  const tips = {
+    'mcq': "In MCQ papers, eliminate obviously wrong answers first. If two options look similar, one is likely the answer.",
+    'calculation': "Always show your working — partial marks are awarded even if the final answer is wrong.",
+    'short-answer': "Use the mark allocation as a guide: if it's worth 3 marks, make 3 distinct points.",
+    'essay': "Plan before writing. Use PEE paragraphs (Point, Evidence, Explanation) and link back to the question.",
+  };
+  return tips[q.questionType] || "Read the question carefully and check your answer before moving on.";
+}
+
+function generateEssayFeedback(question, userText) {
+  const wordCount = userText.trim().split(/\s+/).length;
+  const hasQuotes = /["'"].+?["']/.test(userText) || /['"].+?['"]/.test(userText);
+  const hasBecause = /because|therefore|this shows|this suggests|this implies/i.test(userText);
+  const hasHowever = /however|although|on the other hand|conversely/i.test(userText);
+
+  const strengths = [];
+  const improvements = [];
+
+  if (wordCount > 50) strengths.push("Good length and development of ideas.");
+  else improvements.push("Try to develop your points more fully. Aim for at least 80-100 words.");
+
+  if (hasBecause) strengths.push("Good use of explanatory connectives.");
+  else improvements.push("Use words like 'because', 'this shows', 'this suggests' to explain your points.");
+
+  if (hasQuotes) strengths.push("Evidence/quotations included.");
+  else improvements.push("Include quotations or specific evidence to support your points.");
+
+  if (hasHowever) strengths.push("Shows ability to consider different perspectives.");
+  else improvements.push("Try to include counterarguments using 'however' or 'on the other hand'.");
+
+  let score = 0;
+  const maxMarks = question.marks;
+  if (wordCount > 30) score++;
+  if (wordCount > 80) score++;
+  if (hasBecause) score++;
+  if (hasQuotes) score++;
+  if (hasHowever) score++;
+  if (wordCount > 120) score++;
+  score = Math.min(score, maxMarks);
+
+  return {
+    strengths,
+    improvements,
+    estimatedScore: score,
+    maxMarks,
+    nextTarget: score < maxMarks ? `Target: ${score + 1}/${maxMarks}. ${improvements[0] || ''}` : "Excellent! Try a harder question.",
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   SECTION 6: RENDERING ENGINE
+   ═══════════════════════════════════════════════════════════════════ */
+
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function render() {
+  const app = document.getElementById('app');
+  switch (state.currentScreen) {
+    case 'home': app.innerHTML = renderHome(); break;
+    case 'setup': app.innerHTML = renderSetup(); break;
+    case 'quiz': app.innerHTML = renderQuiz(); break;
+    case 'results': app.innerHTML = renderResults(); break;
+    case 'dashboard': app.innerHTML = renderDashboard(); break;
+    default: app.innerHTML = renderHome();
+  }
+  bindEvents();
+}
+
+function renderHome() {
+  return `
+    <div class="header fade-up">
+      <div class="header-brand">
+        <div class="header-logo">R</div>
+        <h1>Revision Platform</h1>
+      </div>
+      <div class="header-sub">Multi-subject IGCSE & AS Level practice</div>
+    </div>
+
+    <div class="nav-tabs fade-up stagger-1">
+      <button class="nav-tab active" onclick="navigate('home')">Subjects</button>
+      <button class="nav-tab" onclick="navigate('dashboard')">Dashboard</button>
+    </div>
+
+    <h2 class="fade-up stagger-2">Choose a subject</h2>
+    <div class="subject-grid">
+      ${SUBJECTS.map((s, i) => {
+        const count = QUESTIONS.filter(q => q.subject === s.id).length;
+        const acc = getSubjectAccuracy(s.id);
+        const total = state.stats[s.id]?.total || 0;
+        return `<div class="subject-card fade-up stagger-${Math.min(i+2, 5)}" style="--subject-color:${s.color}" onclick="selectSubject('${s.id}')">
+          <div class="subject-name">${s.icon} ${s.name}</div>
+          <div class="subject-meta">${s.level} · ${s.syllabus} · ${count} questions</div>
+          ${total > 0 ? `<div class="subject-stat">${acc}% accuracy · ${total} attempted</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    ${state.mistakes.length > 0 ? `
+      <div class="card fade-up" style="margin-top:8px">
+        <h2>Quick Actions</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="startMistakeReplay()">🔄 Replay ${state.mistakes.length} mistake${state.mistakes.length>1?'s':''}</button>
+          <button class="btn btn-ghost btn-sm" onclick="startWeaknessMode()">🎯 Target weak areas</button>
+        </div>
+      </div>` : ''}
+  `;
+}
+
+function renderSetup() {
+  const sub = SUBJECTS.find(s => s.id === state.selectedSubject);
+  const topics = getTopicsForSubject(sub.id);
+  const papers = getPapersForSubject(sub.id);
+  const pool = filterQuestions(sub.id, state.filters);
+  const modes = [
+    { id: 'practice', name: 'Practice', desc: 'Immediate feedback' },
+    { id: 'exam', name: 'Exam', desc: 'No feedback until end' },
+    { id: 'weakness', name: 'Weakness', desc: 'Target weak topics' },
+    { id: 'mistakes', name: 'Mistakes', desc: 'Replay errors' },
+    { id: 'tutor', name: 'Tutor', desc: 'Hints & step-by-step' },
+    { id: 'flashcard', name: 'Flashcard', desc: 'Study cards' },
+  ];
+
+  return `
+    <div class="header fade-up">
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="btn btn-ghost btn-sm" onclick="navigate('home')">← Back</button>
+        <div>
+          <h1 style="font-size:1.4rem">${sub.icon} ${sub.name}</h1>
+          <div class="header-sub">${sub.level} · ${sub.syllabus}</div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="fade-up stagger-1">Mode</h2>
+    <div class="chip-row fade-up stagger-1">
+      ${modes.map(m => `<div class="chip ${state.mode===m.id?'active':''}" onclick="setMode('${m.id}')" title="${m.desc}">${m.name}</div>`).join('')}
+    </div>
+
+    <h2 class="fade-up stagger-2">Filters</h2>
+    <div class="filter-row fade-up stagger-2">
+      <select class="filter-select" onchange="setFilter('topic',this.value)">
+        <option value="all">All Topics</option>
+        ${topics.map(t => `<option value="${t}" ${state.filters.topic===t?'selected':''}>${t}</option>`).join('')}
+      </select>
+      <select class="filter-select" onchange="setFilter('paper',this.value)">
+        <option value="all">All Papers</option>
+        ${papers.map(p => `<option value="${p}" ${state.filters.paper===p?'selected':''}>${p}</option>`).join('')}
+      </select>
+      <select class="filter-select" onchange="setFilter('difficulty',this.value)">
+        <option value="all">All Difficulties</option>
+        <option value="easy" ${state.filters.difficulty==='easy'?'selected':''}>Easy</option>
+        <option value="medium" ${state.filters.difficulty==='medium'?'selected':''}>Medium</option>
+        <option value="hard" ${state.filters.difficulty==='hard'?'selected':''}>Hard</option>
+      </select>
+      <select class="filter-select" onchange="setFilter('questionType',this.value)">
+        <option value="all">All Types</option>
+        <option value="mcq" ${state.filters.questionType==='mcq'?'selected':''}>MCQ</option>
+        <option value="short-answer" ${state.filters.questionType==='short-answer'?'selected':''}>Short Answer</option>
+        <option value="calculation" ${state.filters.questionType==='calculation'?'selected':''}>Calculation</option>
+        <option value="essay" ${state.filters.questionType==='essay'?'selected':''}>Essay</option>
+      </select>
+    </div>
+
+    <div class="card fade-up stagger-3" style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:.85rem;color:var(--text-bright);font-weight:600">${pool.length} questions available</div>
+        <div style="font-size:.75rem;color:var(--text-dim)">
+          ${state.mode === 'flashcard' ? 'Study all cards' : `Up to ${Math.min(pool.length, state.quizConfig.count)} questions`}
+        </div>
+      </div>
+      <button class="btn btn-primary" ${pool.length===0?'disabled':''} onclick="startQuiz()">
+        ${state.mode === 'flashcard' ? 'Start Flashcards' : 'Start Quiz'} →
+      </button>
+    </div>
+
+    ${state.mode !== 'flashcard' ? `
+    <h2 class="fade-up stagger-4">Question Count</h2>
+    <div class="chip-row fade-up stagger-4">
+      ${[5,10,15,20].map(n => `<div class="chip ${state.quizConfig.count===n?'active':''}" onclick="setCount(${n})">${n}</div>`).join('')}
+    </div>` : ''}
+  `;
+}
+
+function renderQuiz() {
+  const quiz = state.quiz;
+  if (!quiz || !quiz.questions.length) return renderEmpty("No questions found for this selection.");
+
+  // Flashcard mode
+  if (state.mode === 'flashcard') return renderFlashcard();
+
+  const q = quiz.questions[quiz.currentIndex];
+  const answered = quiz.answers[quiz.currentIndex] !== undefined;
+  const progress = ((quiz.currentIndex + (answered ? 1 : 0)) / quiz.questions.length) * 100;
+  const correctCount = Object.values(quiz.answers).filter((a,i) => a?.correct).length;
+  const answeredCount = Object.keys(quiz.answers).length;
+  const accuracy = answeredCount > 0 ? Math.round(correctCount / answeredCount * 100) : 0;
+
+  return `
+    <div class="progress-wrap fade-in">
+      <div class="progress-meta">
+        <span style="color:var(--text-dim);font-weight:600">${quiz.currentIndex + 1} / ${quiz.questions.length}</span>
+        <span style="color:var(--accent)">${accuracy}% · ${correctCount}/${answeredCount}</span>
+      </div>
+      <div class="progress-track"><div class="progress-fill" style="width:${progress}%"></div></div>
+    </div>
+
+    <div class="q-card" id="qcard">
+      <div class="q-meta">
+        <span class="badge badge-${q.difficulty === 'easy' ? 'easy' : q.difficulty === 'hard' ? 'hard' : 'medium'}">${q.difficulty}</span>
+        <span class="badge badge-type">${q.questionType}</span>
+        <span class="badge badge-topic">${q.topic}</span>
+        ${q.marks > 1 ? `<span class="badge" style="background:#3b82f612;color:var(--accent)">${q.marks} marks</span>` : ''}
+      </div>
+      <div class="q-source">${q.paper} · ${q.syllabusRef || ''}</div>
+      <div class="q-prompt">${q.prompt}</div>
+
+      ${renderQuestionInput(q, quiz.currentIndex)}
+
+      ${!answered ? renderConfidenceSelector(quiz.currentIndex) : ''}
+
+      ${answered && state.mode !== 'exam' ? renderFeedbackPanel(q, quiz.answers[quiz.currentIndex]) : ''}
+
+      ${state.mode === 'tutor' && !answered ? renderHintButton(q) : ''}
+    </div>
+
+    <div class="actions actions-spread" style="margin-top:12px">
+      ${!answered ? `
+        <button class="btn btn-ghost btn-sm" onclick="skipQuestion()">Skip</button>
+        <button class="btn btn-primary btn-sm" id="submitBtn" onclick="submitAnswer()" ${canSubmit(q, quiz.currentIndex) ? '' : 'disabled'}>Submit</button>
+      ` : `
+        <button class="btn btn-ghost btn-sm" onclick="endQuiz()">End Quiz</button>
+        <button class="btn btn-primary btn-sm" onclick="nextQuestion()">
+          ${quiz.currentIndex + 1 >= quiz.questions.length ? 'View Results →' : 'Next →'}
+        </button>
+      `}
+    </div>
+    <div class="kbd-hint">Press <kbd>1</kbd>-<kbd>4</kbd> for MCQ · <kbd>Enter</kbd> to submit · <kbd>→</kbd> for next</div>
+  `;
+}
+
+function renderQuestionInput(q, idx) {
+  const answered = state.quiz.answers[idx] !== undefined;
+  const answer = state.quiz.answers[idx];
+
+  if (q.questionType === 'mcq') {
+    return `<div class="q-options">
+      ${q.options.map((opt, i) => {
+        let cls = 'q-option';
+        if (answered) {
+          cls += ' locked';
+          if (i === q.correctAnswer) cls += ' correct';
+          else if (answer?.userAnswer === i) cls += ' incorrect';
+        } else if (state.quiz.pendingAnswer === i) {
+          cls += ' selected';
+        }
+        return `<button class="${cls}" onclick="selectMcqOption(${i})" data-idx="${i}">
+          <span class="q-option-letter">${'ABCD'[i]}</span>
+          <span>${opt}</span>
+        </button>`;
+      }).join('')}
+    </div>`;
+  }
+
+  if (q.questionType === 'calculation' || q.questionType === 'short-answer') {
+    return `<div>
+      <div class="q-input-label">Your answer${q.questionType === 'calculation' ? ' (show working)' : ''}:</div>
+      <textarea class="q-input" id="textAnswer" rows="${q.questionType === 'short-answer' ? 4 : 2}" ${answered ? 'disabled' : ''} placeholder="Type your answer here...">${answered ? (answer?.userAnswer || '') : (state.quiz.pendingText || '')}</textarea>
+
+```
+</div>`;
+```
+
+}
+
+if (q.questionType === ‘essay’) {
+return `<div> <div class="q-input-label">Write your response (${q.marks} marks):</div> <textarea class="q-input" id="textAnswer" rows="10" ${answered ? 'disabled' : ''} placeholder="Write your essay response here...">${answered ? (answer?.userAnswer || '') : (state.quiz.pendingText || '')}</textarea> </div>`;
+}
+
+return ‘’;
+}
+
+function renderConfidenceSelector(idx) {
+const conf = state.quiz.pendingConfidence;
+return `<div class="confidence-row">
+<button class="confidence-btn ${conf==='confident'?'active-confident':''}" onclick="setConfidence('confident')">😊 Confident</button>
+<button class="confidence-btn ${conf==='unsure'?'active-unsure':''}" onclick="setConfidence('unsure')">🤔 Unsure</button>
+<button class="confidence-btn ${conf==='guessed'?'active-guessed':''}" onclick="setConfidence('guessed')">🎲 Guessed</button>
+
+  </div>`;
+}
+
+function renderHintButton(q) {
+if (state.quiz.hintShown) {
+const step = q.teachingSteps?.[0] || q.commonMistakes?.[0] || “Think about the key formula or definition.”;
+return `<div class="hint-box"> <div class="hint-label">💡 Hint</div> <div class="hint-text">${step}</div> </div>`;
+}
+return `<button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="showHint()">💡 Show Hint</button>`;
+}
+
+function renderFeedbackPanel(q, answer) {
+const fb = generateFeedback(q, answer?.userAnswer, answer?.correct);
+
+// Essay feedback
+if ((q.questionType === ‘essay’ || q.questionType === ‘short-answer’) && q.aiMarkable) {
+const ef = generateEssayFeedback(q, answer?.userAnswer || ‘’);
+return `<div class="feedback"> <div class="feedback-body" style="border-radius:var(--radius)"> <div class="feedback-section"> <div class="feedback-section-title">Explanation</div> <div class="feedback-text">${fb.explanation}</div> </div> ${q.markScheme ?`
+<div class="mark-scheme">
+<div class="feedback-section-title" style="margin-bottom:8px">Mark Scheme</div>
+${q.markScheme.map(p => `<div class="ms-point">${p}</div>`).join(’’)}
+</div>`: ''} <div class="essay-feedback" style="margin-top:12px"> <div class="ef-section ef-score"> <div class="ef-title">Estimated Score</div> <div class="ef-text" style="font-size:1.1rem;font-weight:700">${ef.estimatedScore} / ${ef.maxMarks}</div> </div> <div class="ef-section ef-strengths"> <div class="ef-title">Strengths</div> ${ef.strengths.map(s =>`<div class="ef-text">✓ ${s}</div>`).join('') || '<div class="ef-text">Keep practising!</div>'} </div> <div class="ef-section ef-improvements"> <div class="ef-title">Improvements</div> ${ef.improvements.map(s => `<div class="ef-text">→ ${s}</div>`).join('') || '<div class="ef-text">Strong performance!</div>'} </div> <div class="ef-section"> <div class="ef-title" style="color:var(--purple)">Next Target</div> <div class="ef-text">${ef.nextTarget}</div> </div> </div> </div> </div>`;
+}
+
+return `<div class="feedback"> <div class="feedback-header ${fb.correct ? 'feedback-correct' : 'feedback-incorrect'}"> ${fb.correct ? '✓ Correct' : '✗ Incorrect'} ${!fb.correct && fb.correctText ?` — Answer: ${fb.correctText}`: ''} </div> <div class="feedback-body"> <div class="feedback-section"> <div class="feedback-section-title">Explanation</div> <div class="feedback-text">${fb.explanation}</div> </div> ${fb.steps.length ?`<div class="feedback-section">
+<div class="feedback-section-title">Step by Step</div>
+${fb.steps.map(s => `<div class="feedback-step">${s}</div>`).join(’’)}
+</div>`: ''} ${!fb.correct && fb.mistakes.length ?`<div class="feedback-section">
+<div class="feedback-section-title">Common Mistakes</div>
+${fb.mistakes.map(m => `<div class="feedback-mistake">${m}</div>`).join(’’)}
+</div>` : ''} <div class="exam-tip"> <div class="exam-tip-label">📝 Exam Tip</div> <div class="exam-tip-text">${fb.examTip}</div> </div> </div> </div>`;
+}
+
+function renderFlashcard() {
+const quiz = state.quiz;
+const q = quiz.questions[quiz.currentIndex];
+const flipped = quiz.flashcardFlipped;
+
+return `
+<div class="progress-wrap fade-in">
+<div class="progress-meta">
+<span style="color:var(--text-dim);font-weight:600">${quiz.currentIndex + 1} / ${quiz.questions.length}</span>
+<span style="color:var(--text-dim)">Flashcard Mode</span>
+</div>
+<div class="progress-track"><div class="progress-fill" style="width:${((quiz.currentIndex + 1) / quiz.questions.length) * 100}%"></div></div>
+</div>
+
+```
+<div class="flashcard-container" onclick="flipFlashcard()">
+  <div class="flashcard ${flipped ? 'flipped' : ''}">
+    <div class="flashcard-face">
+      <div class="flashcard-label">Question · ${q.topic}</div>
+      <div class="flashcard-content">${q.prompt}</div>
+      <div style="margin-top:16px;font-size:.72rem;color:var(--text-dim)">Click to flip</div>
+    </div>
+    <div class="flashcard-face flashcard-back">
+      <div class="flashcard-label">Answer</div>
+      <div class="flashcard-content">${q.questionType === 'mcq' ? q.options[q.correctAnswer] : (q.correctAnswer || q.explanation)}</div>
+      <div style="margin-top:12px;font-size:.8rem;color:var(--text-dim);text-align:left;width:100%">${q.explanation}</div>
+    </div>
+  </div>
+</div>
+
+<div class="actions" style="justify-content:center">
+  <button class="btn btn-ghost btn-sm" onclick="prevFlashcard()" ${quiz.currentIndex === 0 ? 'disabled' : ''}>← Previous</button>
+  <button class="btn btn-primary btn-sm" onclick="nextFlashcard()">
+    ${quiz.currentIndex + 1 >= quiz.questions.length ? 'Finish' : 'Next →'}
+  </button>
+</div>
+<div class="kbd-hint">Press <kbd>Space</kbd> to flip · <kbd>←</kbd><kbd>→</kbd> to navigate</div>
+```
+
+`;
+}
+
+function renderResults() {
+const quiz = state.quiz;
+const total = quiz.questions.length;
+const answered = Object.keys(quiz.answers).length;
+const correct = Object.values(quiz.answers).filter(a => a?.correct).length;
+const accuracy = answered > 0 ? Math.round(correct / answered * 100) : 0;
+
+// Topic breakdown
+const topicMap = {};
+quiz.questions.forEach((q, i) => {
+const a = quiz.answers[i];
+if (!a) return;
+if (!topicMap[q.topic]) topicMap[q.topic] = { correct: 0, total: 0 };
+topicMap[q.topic].total++;
+if (a.correct) topicMap[q.topic].correct++;
+});
+
+return `
+<div class="header fade-up">
+<h1>Quiz Complete</h1>
+<div class="header-sub">${state.mode} mode · ${SUBJECTS.find(s=>s.id===state.selectedSubject)?.name || ‘’}</div>
+</div>
+
+```
+<div class="stat-grid fade-up stagger-1">
+  <div class="stat-card">
+    <div class="stat-value" style="color:${accuracy>=70?'var(--green)':accuracy>=40?'var(--amber)':'var(--red)'}">${accuracy}%</div>
+    <div class="stat-label">Accuracy</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">${correct}/${answered}</div>
+    <div class="stat-label">Correct</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">${total - answered}</div>
+    <div class="stat-label">Skipped</div>
+  </div>
+</div>
+
+<div class="card fade-up stagger-2">
+  <h2>Performance by Topic</h2>
+  <div class="bar-chart">
+    ${Object.entries(topicMap).map(([topic, data]) => {
+      const pct = Math.round(data.correct / data.total * 100);
+      return `<div class="bar-row">
+        <div class="bar-label">${topic}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${pct>=70?'var(--green)':pct>=40?'var(--amber)':'var(--red)'}"></div></div>
+        <div class="bar-pct">${pct}%</div>
+      </div>`;
+    }).join('')}
+  </div>
+</div>
+
+${state.mode === 'exam' ? `
+  <div class="card fade-up stagger-3">
+    <h2>Question Review</h2>
+    ${quiz.questions.map((q, i) => {
+      const a = quiz.answers[i];
+      if (!a) return '';
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:.84rem">
+        <span style="color:${a.correct?'var(--green)':'var(--red)'};font-weight:600">${a.correct ? '✓' : '✗'}</span>
+        <span style="color:var(--text-dim)">${i+1}.</span> ${q.prompt.substring(0, 80)}...
+      </div>`;
+    }).join('')}
+  </div>` : ''}
+
+<div class="actions fade-up stagger-4" style="justify-content:center">
+  <button class="btn btn-ghost" onclick="navigate('setup')">Try Again</button>
+  <button class="btn btn-primary" onclick="navigate('home')">Home</button>
+</div>
+```
+
+`;
+}
+
+function renderDashboard() {
+const overall = getOverallAccuracy();
+const totalQ = state.history.length;
+const weakTopics = getWeakTopics();
+
+return `
+<div class="header fade-up">
+<div class="header-brand">
+<div class="header-logo">R</div>
+<h1>Dashboard</h1>
+</div>
+</div>
+
+```
+<div class="nav-tabs fade-up stagger-1">
+  <button class="nav-tab" onclick="navigate('home')">Subjects</button>
+  <button class="nav-tab active" onclick="navigate('dashboard')">Dashboard</button>
+</div>
+
+<div class="stat-grid fade-up stagger-2">
+  <div class="stat-card">
+    <div class="stat-value">${overall}%</div>
+    <div class="stat-label">Overall Accuracy</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">${totalQ}</div>
+    <div class="stat-label">Questions Done</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value">${state.mistakes.length}</div>
+    <div class="stat-label">Active Mistakes</div>
+  </div>
+</div>
+
+<div class="card fade-up stagger-3">
+  <h2>Accuracy by Subject</h2>
+  <div class="bar-chart">
+    ${SUBJECTS.map(s => {
+      const pct = getSubjectAccuracy(s.id);
+      const total = state.stats[s.id]?.total || 0;
+      if (!total) return '';
+      return `<div class="bar-row">
+        <div class="bar-label">${s.icon} ${s.name}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${s.color}"></div></div>
+        <div class="bar-pct">${pct}%</div>
+      </div>`;
+    }).join('') || '<div class="empty-state"><div class="empty-text">No data yet. Start a quiz!</div></div>'}
+  </div>
+</div>
+
+${weakTopics.length ? `
+<div class="card fade-up stagger-4">
+  <h2>Weakest Topics</h2>
+  <div class="bar-chart">
+    ${weakTopics.map(t => `<div class="bar-row">
+      <div class="bar-label">${t.topic}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${t.pct}%;background:${t.pct>=50?'var(--amber)':'var(--red)'}"></div></div>
+      <div class="bar-pct">${t.pct}%</div>
+    </div>`).join('')}
+  </div>
+</div>` : ''}
+
+<div class="actions fade-up stagger-5" style="justify-content:center">
+  <button class="btn btn-danger btn-sm" onclick="if(confirm('Clear all progress?')){localStorage.removeItem('${STATE_KEY}');state=defaultState();render();}">Reset All Data</button>
+</div>
+```
+
+`;
+}
+
+function renderEmpty(msg) {
+return `<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">${msg}</div> <button class="btn btn-ghost" style="margin-top:16px" onclick="navigate('home')">← Home</button></div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+SECTION 7: EVENT HANDLERS & ACTIONS
+═══════════════════════════════════════════════════════════════════ */
+
+function navigate(screen) {
+state.currentScreen = screen;
+saveState();
+render();
+}
+
+function selectSubject(id) {
+state.selectedSubject = id;
+state.filters = { paper: ‘all’, topic: ‘all’, difficulty: ‘all’, questionType: ‘all’ };
+state.currentScreen = ‘setup’;
+saveState();
+render();
+}
+
+function setMode(mode) {
+state.mode = mode;
+saveState();
+render();
+}
+
+function setFilter(key, value) {
+state.filters[key] = value;
+saveState();
+render();
+}
+
+function setCount(n) {
+state.quizConfig.count = n;
+saveState();
+render();
+}
+
+function startQuiz() {
+const pool = filterQuestions(state.selectedSubject, state.filters);
+const questions = selectQuestions(pool, state.mode === ‘flashcard’ ? pool.length : state.quizConfig.count, state.mode);
+if (!questions.length) return;
+
+state.quiz = {
+questions,
+currentIndex: 0,
+answers: {},
+pendingAnswer: null,
+pendingText: ‘’,
+pendingConfidence: null,
+hintShown: false,
+flashcardFlipped: false,
+startTime: Date.now(),
+questionStartTime: Date.now(),
+};
+state.currentScreen = ‘quiz’;
+saveState();
+render();
+}
+
+function startMistakeReplay() {
+state.mode = ‘mistakes’;
+state.selectedSubject = null;
+const mistakeIds = new Set(state.mistakes.map(m => m.id));
+const questions = shuffle(QUESTIONS.filter(q => mistakeIds.has(q.id)));
+if (!questions.length) return;
+state.quiz = {
+questions,
+currentIndex: 0,
+answers: {},
+pendingAnswer: null,
+pendingText: ‘’,
+pendingConfidence: null,
+hintShown: false,
+startTime: Date.now(),
+questionStartTime: Date.now(),
+};
+state.currentScreen = ‘quiz’;
+saveState();
+render();
+}
+
+function startWeaknessMode() {
+state.mode = ‘weakness’;
+state.selectedSubject = null;
+const questions = selectQuestions([…QUESTIONS], 10, ‘weakness’);
+if (!questions.length) return;
+state.quiz = {
+questions,
+currentIndex: 0,
+answers: {},
+pendingAnswer: null,
+pendingText: ‘’,
+pendingConfidence: null,
+hintShown: false,
+startTime: Date.now(),
+questionStartTime: Date.now(),
+};
+state.currentScreen = ‘quiz’;
+saveState();
+render();
+}
+
+function selectMcqOption(idx) {
+if (!state.quiz || state.quiz.answers[state.quiz.currentIndex] !== undefined) return;
+state.quiz.pendingAnswer = idx;
+render();
+}
+
+function setConfidence(level) {
+if (!state.quiz) return;
+state.quiz.pendingConfidence = level;
+render();
+}
+
+function canSubmit(q, idx) {
+if (state.quiz.answers[idx] !== undefined) return false;
+if (q.questionType === ‘mcq’) return state.quiz.pendingAnswer !== null;
+return true;
+}
+
+function submitAnswer() {
+const quiz = state.quiz;
+if (!quiz) return;
+const idx = quiz.currentIndex;
+const q = quiz.questions[idx];
+if (quiz.answers[idx] !== undefined) return;
+
+const timeMs = Date.now() - quiz.questionStartTime;
+let userAnswer, correct;
+
+if (q.questionType === ‘mcq’) {
+userAnswer = quiz.pendingAnswer;
+correct = userAnswer === q.correctAnswer;
+} else {
+const textEl = document.getElementById(‘textAnswer’);
+userAnswer = textEl ? textEl.value.trim() : ‘’;
+quiz.pendingText = userAnswer;
+
+```
+if (q.questionType === 'calculation' && q.correctAnswer) {
+  const cleaned = userAnswer.replace(/[^0-9.\-\/]/g, '').trim();
+  correct = cleaned === String(q.correctAnswer) || userAnswer.toLowerCase().includes(String(q.correctAnswer).toLowerCase());
+} else if (q.questionType === 'short-answer' && q.correctAnswer) {
+  correct = userAnswer.toLowerCase().includes(String(q.correctAnswer).toLowerCase());
+} else {
+  correct = null; // Essay or non-markable
+}
+```
+
+}
+
+quiz.answers[idx] = {
+userAnswer,
+correct,
+confidence: quiz.pendingConfidence,
+timeMs,
+};
+
+recordAnswer(q, userAnswer, correct === true, timeMs, quiz.pendingConfidence);
+quiz.pendingAnswer = null;
+quiz.pendingConfidence = null;
+quiz.hintShown = false;
+
+saveState();
+render();
+}
+
+function nextQuestion() {
+const quiz = state.quiz;
+if (!quiz) return;
+if (quiz.currentIndex + 1 >= quiz.questions.length) {
+state.currentScreen = ‘results’;
+} else {
+quiz.currentIndex++;
+quiz.pendingAnswer = null;
+quiz.pendingText = ‘’;
+quiz.pendingConfidence = null;
+quiz.hintShown = false;
+quiz.questionStartTime = Date.now();
+}
+saveState();
+render();
+}
+
+function skipQuestion() {
+nextQuestion();
+}
+
+function endQuiz() {
+state.currentScreen = ‘results’;
+saveState();
+render();
+}
+
+function showHint() {
+if (state.quiz) {
+state.quiz.hintShown = true;
+render();
+}
+}
+
+function flipFlashcard() {
+if (state.quiz) {
+state.quiz.flashcardFlipped = !state.quiz.flashcardFlipped;
+render();
+}
+}
+
+function nextFlashcard() {
+const quiz = state.quiz;
+if (!quiz) return;
+if (quiz.currentIndex + 1 >= quiz.questions.length) {
+navigate(‘home’);
+return;
+}
+quiz.currentIndex++;
+quiz.flashcardFlipped = false;
+saveState();
+render();
+}
+
+function prevFlashcard() {
+const quiz = state.quiz;
+if (!quiz || quiz.currentIndex <= 0) return;
+quiz.currentIndex–;
+quiz.flashcardFlipped = false;
+saveState();
+render();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+SECTION 8: EVENT BINDING & KEYBOARD
+═══════════════════════════════════════════════════════════════════ */
+
+function bindEvents() {
+// Text input live save
+const ta = document.getElementById(‘textAnswer’);
+if (ta) {
+ta.addEventListener(‘input’, () => {
+if (state.quiz) state.quiz.pendingText = ta.value;
+});
+}
+}
+
+document.addEventListener(‘keydown’, (e) => {
+if (state.currentScreen !== ‘quiz’ || !state.quiz) return;
+const quiz = state.quiz;
+const idx = quiz.currentIndex;
+const q = quiz.questions[idx];
+const answered = quiz.answers[idx] !== undefined;
+
+// Flashcard keys
+if (state.mode === ‘flashcard’) {
+if (e.key === ’ ’ || e.key === ‘Enter’) { e.preventDefault(); flipFlashcard(); }
+if (e.key === ‘ArrowRight’) nextFlashcard();
+if (e.key === ‘ArrowLeft’) prevFlashcard();
+return;
+}
+
+// MCQ number keys
+if (q.questionType === ‘mcq’ && !answered && [‘1’,‘2’,‘3’,‘4’].includes(e.key)) {
+selectMcqOption(parseInt(e.key) - 1);
+}
+
+// Submit
+if (e.key === ‘Enter’ && !answered && canSubmit(q, idx)) {
+if (document.activeElement?.tagName === ‘TEXTAREA’) return; // Don’t submit while typing
+e.preventDefault();
+submitAnswer();
+}
+
+// Next
+if ((e.key === ‘ArrowRight’ || e.key === ‘Enter’) && answered) {
+if (document.activeElement?.tagName === ‘TEXTAREA’) return;
+e.preventDefault();
+nextQuestion();
+}
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+INIT
+═══════════════════════════════════════════════════════════════════ */
+render();
+</script>
+
+</body>
+</html>
