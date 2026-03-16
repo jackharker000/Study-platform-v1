@@ -1,745 +1,598 @@
-/* ── Subjects ──────────────────────────────────────────────────── */
-const SUBJECTS = [
-  { id: 'as_physics',   name: 'AS Physics',       level: 'AS',    syllabus: '9702', color: '#3b82f6', icon: '⚛' },
-  { id: 'as_maths',     name: 'AS Mathematics',   level: 'AS',    syllabus: '9709', color: '#a855f7', icon: '∑' },
-  { id: 'ig_biology',   name: 'IGCSE Biology',    level: 'IGCSE', syllabus: '0610', color: '#22c55e', icon: '🧬' },
-  { id: 'ig_chemistry', name: 'IGCSE Chemistry',  level: 'IGCSE', syllabus: '0620', color: '#f59e0b', icon: '⚗' },
-  { id: 'ig_economics', name: 'IGCSE Economics',  level: 'IGCSE', syllabus: '0455', color: '#06b6d4', icon: '📊' },
-  { id: 'ig_english',   name: 'IGCSE English Lit',level: 'IGCSE', syllabus: '0475', color: '#ec4899', icon: '📖' },
+/* ── Levels ─────────────────────────────────────────────────────── */
+const LEVELS = [
+  { id: 'igcse', name: 'IGCSE',    badge: 'IGCSE' },
+  { id: 'as',    name: 'AS Level', badge: 'AS'    },
+  { id: 'a2',    name: 'A2 Level', badge: 'A2'    },
 ];
-const SUBJECT_MAP = Object.fromEntries(SUBJECTS.map(s => [s.id, s]));
 
-/* ── Questions ─────────────────────────────────────────────────── */
+/* ── All subjects ───────────────────────────────────────────────── */
+const ALL_SUBJECTS = [
+  /* ════════════ IGCSE ════════════════════════════════════════════ */
+  {
+    id: 'igcse_maths', level: 'igcse', name: 'Mathematics', icon: '📐',
+    color: '#3b82f6', syllabus: '0580',
+    topics: [
+      { name: 'Number', subtopics: ['Integers & decimals', 'Fractions & percentages', 'Ratios & proportions', 'Standard form', 'Surds & indices', 'Sets'] },
+      { name: 'Algebra', subtopics: ['Expressions & formulae', 'Linear equations', 'Inequalities', 'Sequences', 'Functions', 'Quadratics', 'Simultaneous equations'] },
+      { name: 'Geometry & Trigonometry', subtopics: ['Angles & polygons', 'Circle theorems', 'Trigonometry', 'Vectors', 'Transformations', 'Mensuration'] },
+      { name: 'Statistics & Probability', subtopics: ['Data representation', 'Averages & spread', 'Probability', 'Scatter diagrams', 'Cumulative frequency'] },
+      { name: 'Coordinate Geometry', subtopics: ['Straight lines', 'Midpoints & gradients', 'Graphs of functions'] },
+    ],
+  },
+  {
+    id: 'igcse_econ', level: 'igcse', name: 'Economics', icon: '📈',
+    color: '#06b6d4', syllabus: '0455',
+    topics: [
+      { name: 'Basic Economic Problem', subtopics: ['Scarcity & choice', 'Opportunity cost', 'Factors of production', 'Economic systems'] },
+      { name: 'Demand & Supply', subtopics: ['Demand', 'Supply', 'Price determination', 'Elasticities (PED, PES, YED, XED)'] },
+      { name: 'Market Failure & Government', subtopics: ['Market failure', 'Externalities', 'Government intervention', 'Taxation & subsidies'] },
+      { name: 'Business Economics', subtopics: ['Costs & revenue', 'Market structures', 'Business objectives'] },
+      { name: 'Money & Banking', subtopics: ['Functions of money', 'Role of banks', 'Monetary policy'] },
+      { name: 'Macroeconomics', subtopics: ['National income', 'Inflation', 'Unemployment', 'Economic growth', 'Balance of payments'] },
+      { name: 'International Trade', subtopics: ['Benefits of trade', 'Trade barriers', 'Exchange rates', 'Globalisation'] },
+      { name: 'Development', subtopics: ['Measures of development', 'Causes of poverty', 'Development policies'] },
+    ],
+  },
+  {
+    id: 'igcse_englit', level: 'igcse', name: 'English Literature', icon: '📖',
+    color: '#ec4899', syllabus: '0475',
+    topics: [
+      { name: 'Poetry', subtopics: ['Poetic devices', 'Unseen poetry', 'Anthology comparison', 'Themes in poetry'] },
+      { name: 'Prose', subtopics: ['Character analysis', "Writer's craft", 'Narrative techniques', 'Setting & atmosphere'] },
+      { name: 'Drama', subtopics: ['Dramatic techniques', 'Character & motivation', 'Themes & context'] },
+      { name: 'Critical Writing', subtopics: ['Essay structure', 'PEE paragraphs', 'Quotation & analysis', 'Comparative writing'] },
+    ],
+  },
+  {
+    id: 'igcse_englang', level: 'igcse', name: 'English Language', icon: '✍️',
+    color: '#f43f5e', syllabus: '0500',
+    topics: [
+      { name: 'Reading Skills', subtopics: ['Comprehension', 'Inference', 'Summary writing', 'Language analysis'] },
+      { name: 'Writing Skills', subtopics: ['Narrative writing', 'Descriptive writing', 'Persuasive writing', 'Informative writing'] },
+      { name: 'Language Techniques', subtopics: ['Imagery', 'Tone & voice', 'Structural features', 'Rhetorical devices'] },
+      { name: 'Grammar & Vocabulary', subtopics: ['Sentence structure', 'Punctuation', 'Vocabulary development', 'Register & audience'] },
+    ],
+  },
+  {
+    id: 'igcse_cscience', level: 'igcse', name: 'Combined Science', icon: '🔬',
+    color: '#10b981', syllabus: '0653',
+    topics: [
+      { name: 'Biology', subtopics: ['Cells & organisms', 'Nutrition & digestion', 'Respiration', 'Genetics', 'Ecology'] },
+      { name: 'Chemistry', subtopics: ['Atomic structure', 'Bonding', 'Reactions', 'Organic chemistry', 'Periodic Table'] },
+      { name: 'Physics', subtopics: ['Forces & motion', 'Energy', 'Waves', 'Electricity', 'Radioactivity'] },
+    ],
+  },
+  {
+    id: 'igcse_bio', level: 'igcse', name: 'Biology', icon: '🧬',
+    color: '#22c55e', syllabus: '0610',
+    topics: [
+      { name: 'Cell Biology', subtopics: ['Animal & plant cells', 'Specialised cells', 'Microscopy', 'Diffusion, osmosis & active transport'] },
+      { name: 'Enzymes & Nutrition', subtopics: ['Enzyme action', 'Factors affecting enzymes', 'Photosynthesis', 'Animal nutrition & digestion'] },
+      { name: 'Respiration & Gas Exchange', subtopics: ['Aerobic respiration', 'Anaerobic respiration', 'Breathing system', 'Gas exchange in leaves'] },
+      { name: 'Transport', subtopics: ['Blood & blood vessels', 'Heart structure & function', 'Transpiration', 'Transport in plants'] },
+      { name: 'Excretion & Homeostasis', subtopics: ['Kidney structure & function', 'Thermoregulation', 'Blood glucose regulation', 'Liver functions'] },
+      { name: 'Coordination', subtopics: ['Nervous system', 'Hormones', 'Sense organs', 'Reflex arc'] },
+      { name: 'Reproduction', subtopics: ['Sexual reproduction', 'Asexual reproduction', 'Human reproduction', 'Pollination & fertilisation in plants'] },
+      { name: 'Genetics', subtopics: ['DNA & genes', 'Monohybrid inheritance', 'Codominance & sex linkage', 'Mutation'] },
+      { name: 'Evolution & Ecology', subtopics: ['Natural selection', 'Food chains & webs', 'Carbon & nitrogen cycles', 'Populations & conservation'] },
+    ],
+  },
+  {
+    id: 'igcse_chem', level: 'igcse', name: 'Chemistry', icon: '⚗️',
+    color: '#f59e0b', syllabus: '0620',
+    topics: [
+      { name: 'Experimental Techniques', subtopics: ['Separation methods', 'Chromatography', 'Identification tests'] },
+      { name: 'Atomic Structure & Periodic Table', subtopics: ['Subatomic particles', 'Electronic configuration', 'Isotopes', 'Periodic trends'] },
+      { name: 'Bonding & Structure', subtopics: ['Ionic bonding', 'Covalent bonding', 'Metallic bonding', 'Properties of structures'] },
+      { name: 'Stoichiometry', subtopics: ['Moles', 'Formulae & equations', 'Concentration calculations', 'Yield & purity'] },
+      { name: 'Electrochemistry', subtopics: ['Electrolysis', 'Half-equations', 'Voltaic cells', 'Rusting & prevention'] },
+      { name: 'Chemical Energetics', subtopics: ['Exothermic & endothermic', 'Bond energies', 'Energy profile diagrams'] },
+      { name: 'Reaction Rates & Equilibrium', subtopics: ['Factors affecting rate', 'Collision theory', 'Reversible reactions', "Le Chatelier's principle"] },
+      { name: 'Acids, Bases & Salts', subtopics: ['pH scale', 'Acid & base reactions', 'Preparation of salts', 'Titration'] },
+      { name: 'Metals & Reactivity', subtopics: ['Reactivity series', 'Extraction of metals', 'Alloys', 'Corrosion'] },
+      { name: 'Organic Chemistry', subtopics: ['Alkanes', 'Alkenes & addition reactions', 'Alcohols', 'Carboxylic acids', 'Polymers'] },
+    ],
+  },
+  {
+    id: 'igcse_phys', level: 'igcse', name: 'Physics', icon: '⚛️',
+    color: '#3b82f6', syllabus: '0625',
+    topics: [
+      { name: 'Motion & Forces', subtopics: ['Speed, velocity & acceleration', 'Distance-time & velocity-time graphs', "Newton's laws", 'Momentum & impulse', 'Pressure'] },
+      { name: 'Energy, Work & Power', subtopics: ['Forms of energy', 'Kinetic & potential energy', 'Work & power', 'Efficiency', 'Energy resources'] },
+      { name: 'Thermal Physics', subtopics: ['Temperature & heat', 'Specific heat capacity', 'Latent heat', 'Gas laws', 'Conduction, convection & radiation'] },
+      { name: 'Waves & Optics', subtopics: ['Wave properties', 'Sound', 'Reflection & refraction of light', 'Lenses', 'Electromagnetic spectrum'] },
+      { name: 'Electricity & Magnetism', subtopics: ['Static electricity', 'Current, voltage & resistance', 'Circuits', 'Domestic electricity', 'Electromagnetic effects', 'Transformers'] },
+      { name: 'Atomic & Nuclear Physics', subtopics: ['Atomic model', 'Radioactive emissions', 'Half-life', 'Nuclear reactions & safety'] },
+    ],
+  },
+  {
+    id: 'igcse_cs', level: 'igcse', name: 'Computer Science', icon: '💻',
+    color: '#8b5cf6', syllabus: '0478',
+    topics: [
+      { name: 'Data Representation', subtopics: ['Binary & denary', 'Hexadecimal', 'ASCII & Unicode', 'Image & sound representation'] },
+      { name: 'Networks & Internet', subtopics: ['Network types', 'Internet protocols', 'World Wide Web', 'Encryption & security'] },
+      { name: 'Hardware', subtopics: ['CPU components & fetch-execute', 'Memory types', 'Storage devices', 'Logic gates & truth tables'] },
+      { name: 'Software', subtopics: ['Operating systems', 'Programming languages', 'Translators', 'Software development lifecycle'] },
+      { name: 'Security & Ethics', subtopics: ['Cybersecurity threats', 'Protection measures', 'Privacy & data protection', 'Ethical & legal issues'] },
+      { name: 'Databases', subtopics: ['Database concepts', 'Tables & relationships', 'SQL queries'] },
+      { name: 'Programming Concepts', subtopics: ['Data types & variables', 'Sequence, selection & iteration', 'Procedures & functions', 'Arrays & file handling'] },
+      { name: 'Algorithms', subtopics: ['Pseudocode & flowcharts', 'Bubble & insertion sort', 'Binary & linear search', 'Testing & trace tables'] },
+    ],
+  },
+  {
+    id: 'igcse_hist', level: 'igcse', name: 'History', icon: '🏛️',
+    color: '#dc2626', syllabus: '0470',
+    topics: [
+      { name: 'World War One', subtopics: ['Long-term causes (MAIN)', 'Short-term causes', 'Trench warfare', 'End of WWI & armistice'] },
+      { name: 'The Interwar Period', subtopics: ['Paris Peace Conference', 'Treaty of Versailles', 'League of Nations', 'Rise of Hitler & fascism'] },
+      { name: 'World War Two', subtopics: ['Causes of WWII', 'Key campaigns', 'The Holocaust', 'Allied victory'] },
+      { name: 'Cold War', subtopics: ['Origins of the Cold War', 'Korean War', 'Cuban Missile Crisis', 'Berlin & the Wall', 'End of Cold War'] },
+      { name: 'Source Skills', subtopics: ['Reliability & utility', 'Provenance analysis', 'Inference & cross-referencing', 'Exam technique'] },
+    ],
+  },
+  {
+    id: 'igcse_geog', level: 'igcse', name: 'Geography', icon: '🌍',
+    color: '#059669', syllabus: '0460',
+    topics: [
+      { name: 'Population & Migration', subtopics: ['Population growth', 'Demographic transition model', 'Migration', 'Urbanisation'] },
+      { name: 'Settlement & Urban Issues', subtopics: ['Urban land use', 'Urban growth in LEDCs/MEDCs', 'Urban problems & solutions'] },
+      { name: 'Economic Activity', subtopics: ['Agriculture types', 'Industry & location', 'Tourism', 'Energy resources'] },
+      { name: 'Natural Environments', subtopics: ['Plate tectonics', 'Earthquakes & volcanoes', 'Rivers & flooding', 'Coasts', 'Weather & climate'] },
+      { name: 'Environment & Sustainability', subtopics: ['Climate change causes & effects', 'Deforestation', 'Water supply', 'Desertification'] },
+    ],
+  },
+
+  /* ════════════ AS LEVEL ═════════════════════════════════════════ */
+  {
+    id: 'as_maths', level: 'as', name: 'Mathematics', icon: '∑',
+    color: '#a855f7', syllabus: '9709',
+    topics: [
+      { name: 'Pure 1', subtopics: ['Quadratics', 'Functions', 'Coordinate geometry', 'Circular measure', 'Trigonometry', 'Binomial expansion', 'Differentiation', 'Integration'] },
+      { name: 'Pure 2', subtopics: ['Algebra & division', 'Logarithms & exponentials', 'Trigonometry identities', 'Differentiation techniques', 'Integration techniques', 'Numerical methods'] },
+      { name: 'Statistics 1', subtopics: ['Data representation', 'Permutations & combinations', 'Probability', 'Discrete random variables', 'Normal distribution', 'Sampling & estimation'] },
+      { name: 'Mechanics 1', subtopics: ['Forces & equilibrium', 'Kinematics (SUVAT)', "Newton's laws", 'Energy & momentum', 'Friction'] },
+    ],
+  },
+  {
+    id: 'as_fm', level: 'as', name: 'Further Mathematics', icon: '∞',
+    color: '#7c3aed', syllabus: '9231',
+    topics: [
+      { name: 'Further Pure 1', subtopics: ['Polynomials & roots', 'Rational functions', 'Polar coordinates', 'Complex numbers', 'Matrices', 'Summation of series'] },
+      { name: 'Further Pure 2', subtopics: ['Differential equations', 'Advanced complex numbers', 'Group theory', 'Proof by induction', 'Hyperbolic functions'] },
+      { name: 'Further Statistics 1', subtopics: ['Estimation & confidence intervals', 'Hypothesis testing', 'Chi-squared', 'Regression & correlation'] },
+      { name: 'Further Mechanics 1', subtopics: ['Projectiles', 'Elastic strings & springs', 'Circular motion', 'Dimensional analysis'] },
+    ],
+  },
+  {
+    id: 'as_econ', level: 'as', name: 'Economics', icon: '📊',
+    color: '#0891b2', syllabus: '9708',
+    topics: [
+      { name: 'Microeconomics', subtopics: ['Demand & supply analysis', 'Elasticities', 'Consumer & producer surplus', 'Market structures', 'Market failure & externalities', 'Government policies'] },
+      { name: 'Macroeconomics', subtopics: ['National income accounting', 'AD/AS model', 'Inflation', 'Unemployment', 'Balance of payments', 'Economic growth', 'Fiscal & monetary policy'] },
+    ],
+  },
+  {
+    id: 'as_englit', level: 'as', name: 'English Literature', icon: '📚',
+    color: '#db2777', syllabus: '9695',
+    topics: [
+      { name: 'Poetry', subtopics: ['Close reading techniques', 'Pre-20th century poetry', 'Contextual analysis', 'Comparative poetry essay'] },
+      { name: 'Prose', subtopics: ['Narrative techniques', 'Character & voice', 'Context & theme', 'Comparative prose'] },
+      { name: 'Drama', subtopics: ['Shakespeare', 'Modern drama', 'Stage & performance', 'Dramatic language'] },
+      { name: 'Unseen Texts', subtopics: ['Passage analysis', 'Language & form effects', 'Structural analysis'] },
+    ],
+  },
+  {
+    id: 'as_englang', level: 'as', name: 'English Language', icon: '✒️',
+    color: '#e11d48', syllabus: '9093',
+    topics: [
+      { name: 'Reading & Comprehension', subtopics: ['Directed reading', 'Critical analysis', 'Synthesis across texts', 'Evaluation'] },
+      { name: 'Writing', subtopics: ['Audience & purpose', 'Register & style', 'Original writing', 'Directed writing'] },
+      { name: 'Language Analysis', subtopics: ['Lexical analysis', 'Grammar & syntax', 'Discourse features', 'Pragmatics'] },
+    ],
+  },
+  {
+    id: 'as_bio', level: 'as', name: 'Biology', icon: '🔬',
+    color: '#16a34a', syllabus: '9700',
+    topics: [
+      { name: 'Cell Biology', subtopics: ['Eukaryotic & prokaryotic cells', 'Biological molecules', 'Enzymes', 'Cell membranes & transport', 'Mitosis & meiosis'] },
+      { name: 'Physiology', subtopics: ['Gas exchange surfaces', 'Transport in animals', 'Transport in plants', 'Nutrition in animals', 'Photosynthesis'] },
+      { name: 'Genetics & Evolution', subtopics: ['DNA structure & replication', 'Protein synthesis', 'Inheritance patterns', 'Natural selection & adaptation'] },
+      { name: 'Ecology', subtopics: ['Populations & communities', 'Energy flow & food webs', 'Nutrient cycles', 'Human impact on ecosystems'] },
+    ],
+  },
+  {
+    id: 'as_chem', level: 'as', name: 'Chemistry', icon: '⚗️',
+    color: '#d97706', syllabus: '9701',
+    topics: [
+      { name: 'Physical Chemistry', subtopics: ['Atomic structure', 'Chemical bonding', 'Energetics', 'Equilibrium & Kc', 'Redox', 'Reaction kinetics'] },
+      { name: 'Inorganic Chemistry', subtopics: ['Periodicity', 'Group 2 chemistry', 'Group 17 chemistry', 'Nitrogen & sulfur chemistry'] },
+      { name: 'Organic Chemistry', subtopics: ['Functional groups & nomenclature', 'Alkanes & halogenoalkanes', 'Alkenes', 'Alcohols', 'Analytical techniques (MS, IR)'] },
+    ],
+  },
+  {
+    id: 'as_phys', level: 'as', name: 'Physics', icon: '⚛️',
+    color: '#2563eb', syllabus: '9702',
+    topics: [
+      { name: 'Physical Quantities & Measurement', subtopics: ['SI units & dimensions', 'Uncertainty & error analysis', 'Scalars & vectors'] },
+      { name: 'Kinematics & Dynamics', subtopics: ['SUVAT & projectile motion', "Newton's laws", 'Momentum & impulse', 'Energy & power'] },
+      { name: 'Waves', subtopics: ['Wave properties & equations', 'Superposition & interference', 'Diffraction & gratings', 'Electromagnetic spectrum'] },
+      { name: 'Electricity', subtopics: ['Charge, current & p.d.', 'Resistance & resistivity', "Kirchhoff's laws", 'Potential dividers & EMF'] },
+      { name: 'Particle Physics', subtopics: ['Atomic & nuclear structure', 'Radioactive decay', 'Quarks & leptons'] },
+    ],
+  },
+  {
+    id: 'as_cs', level: 'as', name: 'Computer Science', icon: '💻',
+    color: '#7c3aed', syllabus: '9618',
+    topics: [
+      { name: 'Theory of Computation', subtopics: ['Data representation', 'Communication & networking', 'Hardware & CPU architecture', 'Boolean logic & gates'] },
+      { name: 'Software Development', subtopics: ['Programming paradigms', 'Data structures', 'Algorithms & complexity', 'OOP concepts', 'Testing strategies'] },
+      { name: 'Data & Databases', subtopics: ['Database design', 'SQL', 'Normalisation', 'File handling'] },
+      { name: 'Security & Ethics', subtopics: ['Cyber threats', 'Security protocols', 'Social engineering', 'AI & ethics'] },
+    ],
+  },
+  {
+    id: 'as_hist', level: 'as', name: 'History', icon: '🏛️',
+    color: '#b91c1c', syllabus: '9489',
+    topics: [
+      { name: 'Historical Skills', subtopics: ['Source evaluation', 'Historiography', 'Essay structure', 'Causation & significance'] },
+      { name: '20th Century International', subtopics: ['Origins of WWI', 'Paris Peace Settlement 1919', 'League of Nations', 'Origins of WWII'] },
+    ],
+  },
+  {
+    id: 'as_geog', level: 'as', name: 'Geography', icon: '🌍',
+    color: '#047857', syllabus: '9696',
+    topics: [
+      { name: 'Physical Geography', subtopics: ['Hydrology & fluvial geomorphology', 'Atmosphere & weather', 'Coastal environments', 'Glacial environments'] },
+      { name: 'Human Geography', subtopics: ['Population dynamics', 'Migration', 'Settlement dynamics', 'Economic transition', 'Global interdependence'] },
+    ],
+  },
+
+  /* ════════════ A2 LEVEL ═════════════════════════════════════════ */
+  {
+    id: 'a2_maths', level: 'a2', name: 'Mathematics', icon: '∑',
+    color: '#9333ea', syllabus: '9709',
+    topics: [
+      { name: 'Pure 3', subtopics: ['Advanced algebra', 'Logarithms & exponentials', 'Advanced trigonometry', 'Differentiation techniques', 'Integration techniques', 'Vectors', 'Complex numbers', 'Differential equations', 'Numerical methods'] },
+      { name: 'Statistics 2', subtopics: ['Poisson distribution', 'Linear combinations of variables', 'Continuous random variables', 'Sampling & estimation', 'Hypothesis testing'] },
+      { name: 'Mechanics 2', subtopics: ['Projectiles', 'Equilibrium of rigid bodies', 'Circular motion', "Hooke's law", 'Moments'] },
+    ],
+  },
+  {
+    id: 'a2_fm', level: 'a2', name: 'Further Mathematics', icon: '∞',
+    color: '#6d28d9', syllabus: '9231',
+    topics: [
+      { name: 'Further Pure 3', subtopics: ['Advanced differential equations', 'Complex numbers & Argand diagrams', 'Group theory', 'Proof by induction', 'Arc length & surface area'] },
+      { name: 'Further Pure 4', subtopics: ['Vectors & matrices in 3D', 'Advanced integration', 'Series & convergence', 'Number theory & modular arithmetic'] },
+      { name: 'Further Statistics 2', subtopics: ['Probability generating functions', 'Advanced inference', 'Non-parametric tests', 'Chi-squared tests'] },
+      { name: 'Further Mechanics 2', subtopics: ['Rotational dynamics', 'Stability & centres of mass', 'Collisions in 2D', 'Variable mass problems'] },
+    ],
+  },
+  {
+    id: 'a2_econ', level: 'a2', name: 'Economics', icon: '📊',
+    color: '#0e7490', syllabus: '9708',
+    topics: [
+      { name: 'Advanced Microeconomics', subtopics: ['Perfect competition vs monopoly', 'Oligopoly & game theory', 'Labour markets & wages', 'Welfare economics & Pareto efficiency'] },
+      { name: 'Advanced Macroeconomics', subtopics: ['Quantity theory of money', 'Supply-side policies', 'International economics & trade theory', 'Development economics', 'Policy conflicts & evaluation'] },
+    ],
+  },
+  {
+    id: 'a2_englit', level: 'a2', name: 'English Literature', icon: '📚',
+    color: '#be185d', syllabus: '9695',
+    topics: [
+      { name: 'Literary Criticism', subtopics: ['Critical theories', 'Feminist & gender criticism', 'Marxist criticism', 'Post-colonial criticism'] },
+      { name: 'Comparative Study', subtopics: ['Cross-genre comparison', 'Thematic links', 'Style, form & structure', 'Contextual comparison'] },
+      { name: 'Set Texts', subtopics: ['Prose set texts', 'Drama set texts', 'Poetry collections'] },
+    ],
+  },
+  {
+    id: 'a2_englang', level: 'a2', name: 'English Language', icon: '✒️',
+    color: '#be123c', syllabus: '9093',
+    topics: [
+      { name: 'Language in Context', subtopics: ['Sociolinguistics', 'Language change over time', 'Language & power', 'Language acquisition'] },
+      { name: 'Advanced Writing', subtopics: ['Crafting arguments', 'Stylistic choices & voice', 'Genre manipulation', 'Commentary writing'] },
+    ],
+  },
+  {
+    id: 'a2_bio', level: 'a2', name: 'Biology', icon: '🔬',
+    color: '#15803d', syllabus: '9700',
+    topics: [
+      { name: 'Homeostasis & Control', subtopics: ['Nervous system & synapses', 'Hormonal coordination', 'Osmoregulation & kidney', 'Thermoregulation'] },
+      { name: 'Genetics & Biotechnology', subtopics: ['Gene technology & PCR', 'Genome sequencing', 'Recombinant DNA', 'Cloning', 'Ethical issues'] },
+      { name: 'Immunity & Disease', subtopics: ['Immune response', 'Antibodies & B/T cells', 'Vaccines', 'Monoclonal antibodies'] },
+      { name: 'Evolution & Populations', subtopics: ['Hardy-Weinberg principle', 'Speciation', 'Allelic frequency & selection', 'Conservation'] },
+    ],
+  },
+  {
+    id: 'a2_chem', level: 'a2', name: 'Chemistry', icon: '⚗️',
+    color: '#b45309', syllabus: '9701',
+    topics: [
+      { name: 'Advanced Physical', subtopics: ['Entropy & Gibbs free energy', 'Electrode potentials', 'Advanced kinetics & rate equations', 'Acid-base equilibria & buffers', 'Complex ions & ligands'] },
+      { name: 'Advanced Inorganic', subtopics: ['Transition metal chemistry', 'Redox in industry', 'Reactions & mechanisms review'] },
+      { name: 'Advanced Organic', subtopics: ['Benzene & electrophilic substitution', 'Carbonyl compounds', 'Amines & amino acids', 'Polymers & condensation', 'Organic synthesis', 'NMR & spectroscopy'] },
+    ],
+  },
+  {
+    id: 'a2_phys', level: 'a2', name: 'Physics', icon: '⚛️',
+    color: '#1d4ed8', syllabus: '9702',
+    topics: [
+      { name: 'Circular & Oscillatory Motion', subtopics: ['Circular motion (angular velocity)', 'Simple harmonic motion', 'Resonance & damping'] },
+      { name: 'Thermal & Gas Physics', subtopics: ['Internal energy & temperature', 'Ideal gas equations', 'Kinetic model of gases'] },
+      { name: 'Fields', subtopics: ['Gravitational fields', 'Electric fields & potential', 'Capacitance', 'Magnetic fields', 'Electromagnetic induction'] },
+      { name: 'Nuclear & Quantum Physics', subtopics: ['Radioactive decay equations', 'Nuclear binding energy', 'Photoelectric effect', 'Wave-particle duality', 'Energy levels'] },
+    ],
+  },
+  {
+    id: 'a2_cs', level: 'a2', name: 'Computer Science', icon: '💻',
+    color: '#5b21b6', syllabus: '9618',
+    topics: [
+      { name: 'Theory of Computation', subtopics: ['Finite state machines', 'Turing machines & computability', 'Regular expressions', 'Context-free grammars'] },
+      { name: 'Advanced Programming', subtopics: ['Recursion & stacks', 'Trees, graphs & traversal', 'Advanced sorting & searching', 'Dynamic programming'] },
+      { name: 'Systems & Architecture', subtopics: ['Operating systems internals', 'Network protocols', 'Processor architectures', 'Parallel processing'] },
+      { name: 'AI & Emerging Tech', subtopics: ['Machine learning fundamentals', 'Neural networks', 'AI applications', 'Ethical implications'] },
+    ],
+  },
+  {
+    id: 'a2_hist', level: 'a2', name: 'History', icon: '🏛️',
+    color: '#991b1b', syllabus: '9489',
+    topics: [
+      { name: 'Advanced Historical Skills', subtopics: ['Extended essay technique', 'Historiographical debate', 'Complex causation', 'Significance & change'] },
+      { name: 'Modern World History', subtopics: ['Cold War development & crises', 'Decolonisation', 'Rise of nationalism', 'Genocide, human rights & the UN'] },
+    ],
+  },
+  {
+    id: 'a2_geog', level: 'a2', name: 'Geography', icon: '🌍',
+    color: '#065f46', syllabus: '9696',
+    topics: [
+      { name: 'Advanced Physical', subtopics: ['Climate systems & change', 'Tectonic hazard management', 'Geomorphological processes', 'Ecosystem management'] },
+      { name: 'Advanced Human', subtopics: ['Global production networks', 'Environmental management', 'Urban futures', 'Development, aid & inequality'] },
+    ],
+  },
+];
+
+/* ── Active subject management ──────────────────────────────────── */
+const ACTIVE_SUBJECTS_KEY = 'rp-active-subjects';
+
+function getActiveSubjectIds() {
+  const stored = localStorage.getItem(ACTIVE_SUBJECTS_KEY);
+  if (stored) {
+    try { return JSON.parse(stored); } catch(e) {}
+  }
+  return ALL_SUBJECTS.map(s => s.id); // default: all
+}
+function setActiveSubjectIds(ids) {
+  localStorage.setItem(ACTIVE_SUBJECTS_KEY, JSON.stringify(ids));
+}
+function isSubjectActive(id) { return getActiveSubjectIds().includes(id); }
+function toggleSubject(id) {
+  const ids = getActiveSubjectIds();
+  const idx = ids.indexOf(id);
+  if (idx === -1) ids.push(id); else ids.splice(idx, 1);
+  setActiveSubjectIds(ids);
+}
+
+/* ── Computed maps ───────────────────────────────────────────────── */
+const SUBJECT_MAP = Object.fromEntries(ALL_SUBJECTS.map(s => [s.id, s]));
+const LEVEL_MAP   = Object.fromEntries(LEVELS.map(l => [l.id, l]));
+
+// SUBJECTS = active subjects only (backward compat)
+Object.defineProperty(window, 'SUBJECTS', {
+  configurable: true,
+  get() { return ALL_SUBJECTS.filter(s => isSubjectActive(s.id)); },
+});
+
+/* ── Questions bank ─────────────────────────────────────────────── */
 const QUESTIONS = [
-  // ─── AS PHYSICS ────────────────────────────────────────────────
+  // ── AS Physics ──────────────────────────────────────────────────
   {
-    id: 'phy_001', subject: 'as_physics', level: 'AS', syllabus: '9702',
-    paper: 'Paper 1', topic: 'Physical Quantities and Units', subtopic: 'SI base units',
-    syllabusRef: '1.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['units', 'dimensional analysis'],
-    tags: ['SI units', 'base units', 'pressure'], examFrequency: 'high',
-    prompt: 'Which expression has the same SI base units as pressure?',
-    options: [
-      'force / (length × speed)',
-      'force / (length × time)',
-      'mass / (length × time²)',
-      'mass × time² / length',
-    ],
+    id: 'q001', subject: 'as_phys', topic: 'Kinematics & Dynamics', subtopic: 'SUVAT & projectile motion',
+    questionType: 'mcq', difficulty: 'easy', marks: 1,
+    prompt: 'A car accelerates uniformly from rest to 20 m/s in 5 seconds. What is its acceleration?',
+    options: ['2 m/s²', '4 m/s²', '5 m/s²', '10 m/s²'],
+    correctAnswer: 1,
+    markScheme: ['a = Δv/t = (20 – 0)/5 = 4 m/s²'],
+    explanation: 'Using a = Δv/Δt, acceleration = change in velocity ÷ time.',
+    tags: ['kinematics'],
+  },
+  {
+    id: 'q002', subject: 'as_phys', topic: 'Waves', subtopic: 'Wave properties & equations',
+    questionType: 'mcq', difficulty: 'easy', marks: 1,
+    prompt: 'Which of the following is a longitudinal wave?',
+    options: ['Light', 'Water wave', 'Sound', 'Radio wave'],
     correctAnswer: 2,
-    explanation: 'Pressure = Force / Area = kg m⁻¹ s⁻². Option C: mass/(length×time²) = kg/(m·s²) = kg m⁻¹ s⁻² ✓',
-    commonMistakes: ['Confusing force units with pressure units', 'Forgetting area contributes m²'],
-    teachingSteps: [
-      'Write pressure = force / area',
-      'Expand force = kg·m·s⁻² and area = m²',
-      'Simplify to get kg·m⁻¹·s⁻²',
-      'Check each option by expanding units',
-    ],
-    aiMarkable: false, markScheme: null,
+    markScheme: ['Sound is longitudinal — particles vibrate parallel to wave direction'],
+    explanation: 'Longitudinal waves have oscillations parallel to the direction of propagation.',
+    tags: ['waves'],
   },
   {
-    id: 'phy_002', subject: 'as_physics', level: 'AS', syllabus: '9702',
-    paper: 'Paper 1', topic: 'Kinematics', subtopic: 'SUVAT equations',
-    syllabusRef: '2.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['kinematics', 'equation selection'],
-    tags: ['SUVAT', 'free fall'], examFrequency: 'high',
-    prompt: 'A ball is dropped from rest and falls for 2.0 s. How far does it fall? (g = 9.81 m s⁻²)',
-    options: ['9.81 m', '4.91 m', '19.62 m', '39.24 m'],
+    id: 'q003', subject: 'as_phys', topic: 'Electricity', subtopic: 'Resistance & resistivity',
+    questionType: 'calculation', difficulty: 'medium', marks: 3,
+    prompt: 'A wire of length 2.0 m and cross-sectional area 1.5 × 10⁻⁶ m² has a resistance of 4.0 Ω. Calculate the resistivity of the material.',
+    correctAnswer: '3.0e-6',
+    markScheme: ['ρ = RA/L', '= 4.0 × (1.5 × 10⁻⁶) / 2.0', '= 3.0 × 10⁻⁶ Ω·m'],
+    explanation: 'Resistivity ρ = RA/L.',
+    tags: ['electricity', 'resistivity'],
+  },
+  {
+    id: 'q004', subject: 'as_phys', topic: 'Physical Quantities & Measurement', subtopic: 'Uncertainty & error analysis',
+    questionType: 'short-answer', difficulty: 'medium', marks: 4,
+    prompt: 'Explain the difference between systematic error and random error. Give one example of each.',
+    markScheme: [
+      'Systematic error: consistent shift in all readings in one direction [1]',
+      'Cannot be reduced by repeating measurements [1]',
+      'Example: zero error on a micrometer [1]',
+      'Random error: unpredictable variation between repeated readings [1]',
+      'Example: human reaction time with a stopwatch [1]',
+    ],
+    explanation: 'Systematic errors bias all values the same way; random errors cause scatter around the true value.',
+    tags: ['uncertainty', 'errors'],
+  },
+  {
+    id: 'q005', subject: 'as_phys', topic: 'Kinematics & Dynamics', subtopic: "Newton's laws",
+    questionType: 'essay', difficulty: 'hard', marks: 6,
+    prompt: "Explain Newton's three laws of motion with a real-world example for each, and discuss how they underpin conservation of momentum.",
+    markScheme: [
+      "Newton's First Law: object remains at rest/uniform motion unless net force acts [1]",
+      'Example: seatbelt during emergency stop [1]',
+      "Newton's Second Law: F = ma / F = rate of change of momentum [1]",
+      'Example: greater force gives greater acceleration [1]',
+      "Newton's Third Law: equal and opposite reaction [1]",
+      'Example: rocket propulsion [1]',
+      'Third law → internal forces cancel → momentum conserved in isolated system [1]',
+    ],
+    explanation: "Newton's laws are the foundation of classical mechanics.",
+    tags: ["Newton's laws", 'momentum'],
+  },
+  // ── AS Maths ────────────────────────────────────────────────────
+  {
+    id: 'q006', subject: 'as_maths', topic: 'Pure 1', subtopic: 'Quadratics',
+    questionType: 'mcq', difficulty: 'easy', marks: 1,
+    prompt: 'Which condition gives two distinct real roots for ax² + bx + c = 0?',
+    options: ['b² – 4ac < 0', 'b² – 4ac = 0', 'b² – 4ac > 0', 'b² – 4ac ≥ 0'],
     correctAnswer: 2,
-    explanation: 'Using s = ut + ½gt² with u = 0: s = ½ × 9.81 × 2² = 19.62 m.',
-    commonMistakes: ['Using s = gt instead of ½gt²', 'Forgetting u = 0'],
-    teachingSteps: [
-      'Identify: u = 0, a = g, t = 2.0 s',
-      'Select equation: s = ut + ½at²',
-      'Substitute: s = 0 + ½(9.81)(4.0)',
-      'Calculate: s = 19.62 m',
+    markScheme: ['b² – 4ac > 0 means two distinct real roots'],
+    explanation: 'When the discriminant is positive, the quadratic has two different real solutions.',
+    tags: ['quadratics', 'discriminant'],
+  },
+  {
+    id: 'q007', subject: 'as_maths', topic: 'Pure 1', subtopic: 'Differentiation',
+    questionType: 'calculation', difficulty: 'medium', marks: 4,
+    prompt: 'Find the stationary points of y = 2x³ – 9x² + 12x – 4 and determine their nature.',
+    correctAnswer: '(1,1) max and (2,0) min',
+    markScheme: [
+      'dy/dx = 6x² – 18x + 12',
+      'Set = 0: x² – 3x + 2 = 0 → x = 1 or x = 2',
+      'x=1: y=1 → point (1,1); x=2: y=0 → point (2,0)',
+      'd²y/dx² = 12x – 18. At x=1: –6 < 0 → maximum. At x=2: +6 > 0 → minimum',
     ],
-    aiMarkable: false, markScheme: null,
+    explanation: 'Set dy/dx = 0, solve, then use the second derivative test.',
+    tags: ['differentiation', 'stationary points'],
   },
   {
-    id: 'phy_003', subject: 'as_physics', level: 'AS', syllabus: '9702',
-    paper: 'Paper 1', topic: 'Dynamics', subtopic: "Newton's second law",
-    syllabusRef: '3.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['force', 'acceleration'],
-    tags: ['F=ma', 'dynamics'], examFrequency: 'high',
-    prompt: 'A resultant force of 24 N acts on a 6.0 kg mass. What is the acceleration?',
-    options: ['144 m s⁻²', '4.0 m s⁻²', '0.25 m s⁻²', '30 m s⁻²'],
-    correctAnswer: 1,
-    explanation: 'F = ma, so a = F/m = 24/6.0 = 4.0 m s⁻².',
-    commonMistakes: ['Multiplying force × mass', 'Using weight instead of mass'],
-    teachingSteps: ['Recall F = ma', 'Rearrange: a = F/m', 'Substitute: a = 24/6.0', 'a = 4.0 m s⁻²'],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'phy_004', subject: 'as_physics', level: 'AS', syllabus: '9702',
-    paper: 'Paper 1', topic: 'Work, Energy and Power', subtopic: 'Kinetic energy',
-    syllabusRef: '5.2', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'calculation', marks: 2,
-    skillsTested: ['energy', 'calculation'],
-    tags: ['KE', 'conservation'], examFrequency: 'high',
-    prompt: 'A 1200 kg car travels at 25 m s⁻¹. Calculate its kinetic energy.',
-    options: null, correctAnswer: '375000',
-    explanation: 'KE = ½mv² = ½ × 1200 × 25² = 375 000 J = 375 kJ.',
-    commonMistakes: ['Forgetting to square velocity', 'Forgetting the ½'],
-    teachingSteps: ['Write KE = ½mv²', 'Substitute: KE = ½ × 1200 × 625', 'Calculate: KE = 375 000 J'],
-    aiMarkable: true, markScheme: ['½mv² stated or used [1]', '375 000 J or 375 kJ [1]'],
-  },
-  {
-    id: 'phy_005', subject: 'as_physics', level: 'AS', syllabus: '9702',
-    paper: 'Paper 1', topic: 'Waves', subtopic: 'Wave equation',
-    syllabusRef: '7.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['waves'],
-    tags: ['wave speed', 'frequency'], examFrequency: 'high',
-    prompt: 'A wave has frequency 250 Hz and wavelength 1.36 m. What is its speed?',
-    options: ['184 m s⁻¹', '340 m s⁻¹', '250 m s⁻¹', '0.00544 m s⁻¹'],
-    correctAnswer: 1,
-    explanation: 'v = fλ = 250 × 1.36 = 340 m s⁻¹.',
-    commonMistakes: ['Dividing instead of multiplying', 'Confusing period and frequency'],
-    teachingSteps: ['Recall v = fλ', 'Substitute values', 'v = 250 × 1.36 = 340 m s⁻¹'],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'phy_006', subject: 'as_physics', level: 'AS', syllabus: '9702',
-    paper: 'Paper 1', topic: 'Electricity', subtopic: 'Resistance',
-    syllabusRef: '9.3', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'short-answer', marks: 3,
-    skillsTested: ['electricity', 'resistivity'],
-    tags: ['resistance', 'wire'], examFrequency: 'medium',
-    prompt: 'A copper wire has length 2.0 m, cross-sectional area 1.0 × 10⁻⁶ m² and resistivity 1.7 × 10⁻⁸ Ω m. Calculate its resistance.',
-    options: null, correctAnswer: '0.034',
-    explanation: 'R = ρL/A = (1.7×10⁻⁸ × 2.0) / (1.0×10⁻⁶) = 0.034 Ω.',
-    commonMistakes: ['Rearranging ρ = RA/L incorrectly', 'Powers of 10 errors'],
-    teachingSteps: [
-      'Write R = ρL/A',
-      'Substitute: R = (1.7×10⁻⁸ × 2.0) / (1.0×10⁻⁶)',
-      'Calculate numerator: 3.4×10⁻⁸',
-      'Divide: 3.4×10⁻⁸ / 10⁻⁶ = 0.034 Ω',
+    id: 'q008', subject: 'as_maths', topic: 'Statistics 1', subtopic: 'Normal distribution',
+    questionType: 'calculation', difficulty: 'hard', marks: 5,
+    prompt: 'X ~ N(50, 16). Find P(46 < X < 58) to 4 decimal places.',
+    correctAnswer: '0.8185',
+    markScheme: [
+      'Standardise: Z = (X – 50)/4',
+      'P(46 < X < 58) = P(–1 < Z < 2)',
+      '= Φ(2) – Φ(–1) = 0.9772 – 0.1587 = 0.8185',
     ],
-    aiMarkable: true, markScheme: ['R = ρL/A used [1]', 'Correct substitution [1]', 'R = 0.034 Ω [1]'],
+    explanation: 'Convert to Z-scores then use standard normal tables.',
+    tags: ['normal distribution'],
   },
+  // ── IGCSE Biology ───────────────────────────────────────────────
   {
-    id: 'phy_007', subject: 'as_physics', level: 'AS', syllabus: '9702',
-    paper: 'Paper 1', topic: 'Superposition', subtopic: 'Diffraction grating',
-    syllabusRef: '8.4', difficulty: 'hard', difficultyScore: 3,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['superposition', 'calculation'],
-    tags: ['diffraction grating', 'wavelength'], examFrequency: 'medium',
-    prompt: 'A diffraction grating has 500 lines per mm. Light of wavelength 600 nm is used. What is the maximum observable order of diffraction?',
-    options: ['2', '3', '4', '5'],
-    correctAnswer: 1,
-    explanation: 'd = 1/(500×10³) = 2×10⁻⁶ m. n_max = d/λ = 2×10⁻⁶/6×10⁻⁷ = 3.33, so n_max = 3.',
-    commonMistakes: ['Not finding d from lines/mm', 'Forgetting sinθ ≤ 1'],
-    teachingSteps: [
-      'Calculate d = 1/(500 000) m = 2×10⁻⁶ m',
-      'Use d sinθ = nλ with sinθ_max = 1',
-      'n_max = d/λ = 2×10⁻⁶ / 6×10⁻⁷ = 3.33',
-      'Round down: n_max = 3',
-    ],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'phy_008', subject: 'as_physics', level: 'AS', syllabus: '9702',
-    paper: 'Paper 2', topic: 'Particle Physics', subtopic: 'Quarks',
-    syllabusRef: '11.2', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['particles'],
-    tags: ['quarks', 'proton'], examFrequency: 'medium',
-    prompt: 'A proton consists of which quarks?',
-    options: ['uud', 'udd', 'uuu', 'uds'],
-    correctAnswer: 0,
-    explanation: 'Proton = up + up + down (uud). Charge: +⅔ +⅔ -⅓ = +1.',
-    commonMistakes: ['Mixing up proton and neutron compositions', 'Getting quark charges wrong'],
-    teachingSteps: [
-      'Proton charge = +1e',
-      'Up quark = +⅔e, down quark = -⅓e',
-      'Check: uud = +⅔+⅔-⅓ = +1 ✓',
-      'Neutron would be udd = 0',
-    ],
-    aiMarkable: false, markScheme: null,
-  },
-
-  // ─── AS MATHEMATICS ────────────────────────────────────────────
-  {
-    id: 'math_001', subject: 'as_maths', level: 'AS', syllabus: '9709',
-    paper: 'Paper 1', topic: 'Quadratics', subtopic: 'Completing the square',
-    syllabusRef: '1.2', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'calculation', marks: 3,
-    skillsTested: ['algebra', 'manipulation'],
-    tags: ['quadratic', 'completing square'], examFrequency: 'high',
-    prompt: 'Express x² + 6x + 2 in the form (x + a)² + b. State the values of a and b.',
-    options: null, correctAnswer: 'a=3, b=-7',
-    explanation: 'x² + 6x + 2 = (x + 3)² - 9 + 2 = (x + 3)² - 7. So a = 3, b = -7.',
-    commonMistakes: ['Sign error: writing +9 instead of -9', 'Forgetting to add the constant term'],
-    teachingSteps: [
-      'Halve the coefficient of x: 6/2 = 3',
-      'Write (x + 3)² = x² + 6x + 9',
-      'Adjust: x² + 6x + 2 = (x+3)² - 9 + 2',
-      'Simplify: (x+3)² - 7',
-    ],
-    aiMarkable: true, markScheme: ['(x + 3)² seen [1]', '−9 + 2 attempted [1]', 'a = 3, b = −7 [1]'],
-  },
-  {
-    id: 'math_002', subject: 'as_maths', level: 'AS', syllabus: '9709',
-    paper: 'Paper 1', topic: 'Coordinate Geometry', subtopic: 'Straight lines',
-    syllabusRef: '2.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['gradient', 'coordinates'],
-    tags: ['gradient', 'midpoint'], examFrequency: 'high',
-    prompt: 'What is the gradient of the line joining (1, 3) and (5, 11)?',
-    options: ['2', '4', '½', '8'],
-    correctAnswer: 0,
-    explanation: 'm = (y₂-y₁)/(x₂-x₁) = (11-3)/(5-1) = 8/4 = 2.',
-    commonMistakes: ['Subtracting coordinates in wrong order', 'Dividing Δx by Δy'],
-    teachingSteps: ['Use m = (y₂-y₁)/(x₂-x₁)', 'Substitute: (11-3)/(5-1)', 'Calculate: 8/4 = 2'],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'math_003', subject: 'as_maths', level: 'AS', syllabus: '9709',
-    paper: 'Paper 1', topic: 'Functions', subtopic: 'Domain and range',
-    syllabusRef: '3.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'short-answer', marks: 2,
-    skillsTested: ['functions'],
-    tags: ['range', 'quadratic'], examFrequency: 'medium',
-    prompt: 'f(x) = x² − 4x + 7 for x ∈ ℝ. Find the range of f.',
-    options: null, correctAnswer: 'f(x) ≥ 3',
-    explanation: 'Complete the square: f(x) = (x-2)² + 3. Minimum value is 3. Range: f(x) ≥ 3.',
-    commonMistakes: ['Not completing the square', 'Writing range as x ≥ 3 instead of f(x) ≥ 3'],
-    teachingSteps: [
-      'Complete the square: (x-2)² + 3',
-      'Minimum of (x-2)² is 0, when x = 2',
-      'Minimum of f(x) is 0 + 3 = 3',
-      'Range: f(x) ≥ 3',
-    ],
-    aiMarkable: true, markScheme: ['Completed square form [1]', 'Range: f(x) ≥ 3 [1]'],
-  },
-  {
-    id: 'math_004', subject: 'as_maths', level: 'AS', syllabus: '9709',
-    paper: 'Paper 1', topic: 'Differentiation', subtopic: 'Basic rules',
-    syllabusRef: '7.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'calculation', marks: 2,
-    skillsTested: ['calculus'],
-    tags: ['differentiation', 'power rule'], examFrequency: 'high',
-    prompt: 'Differentiate y = 3x⁴ − 2x² + 5x.',
-    options: null, correctAnswer: '12x³ − 4x + 5',
-    explanation: 'dy/dx = 12x³ − 4x + 5. Apply the power rule to each term.',
-    commonMistakes: ['Forgetting to reduce the power by 1', 'Not differentiating the constant coefficient'],
-    teachingSteps: ['Apply power rule: d/dx(xⁿ) = nxⁿ⁻¹', '3x⁴ → 12x³', '−2x² → −4x', '5x → 5'],
-    aiMarkable: true, markScheme: ['At least two terms correct [1]', 'All three terms correct [1]'],
-  },
-  {
-    id: 'math_005', subject: 'as_maths', level: 'AS', syllabus: '9709',
-    paper: 'Paper 1', topic: 'Integration', subtopic: 'Definite integrals',
-    syllabusRef: '8.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'calculation', marks: 3,
-    skillsTested: ['calculus', 'integration'],
-    tags: ['definite integral'], examFrequency: 'high',
-    prompt: 'Evaluate ∫₁³ (2x + 1) dx.',
-    options: null, correctAnswer: '10',
-    explanation: '∫(2x+1)dx = x² + x + C. [x² + x]₁³ = (9+3) − (1+1) = 12 − 2 = 10.',
-    commonMistakes: ['Forgetting to evaluate at both limits', 'Integration errors with constants'],
-    teachingSteps: ['Integrate: x² + x', 'Upper limit: 3² + 3 = 12', 'Lower limit: 1² + 1 = 2', 'Subtract: 12 − 2 = 10'],
-    aiMarkable: true, markScheme: ['Correct integral x² + x [1]', 'Substitution of limits [1]', 'Answer = 10 [1]'],
-  },
-  {
-    id: 'math_006', subject: 'as_maths', level: 'AS', syllabus: '9709',
-    paper: 'Paper 1', topic: 'Trigonometry', subtopic: 'Identities',
-    syllabusRef: '5.1', difficulty: 'hard', difficultyScore: 3,
-    questionType: 'short-answer', marks: 4,
-    skillsTested: ['trigonometry', 'proof'],
-    tags: ['trig identity', 'proof'], examFrequency: 'medium',
-    prompt: 'Solve 2sin²θ + sinθ − 1 = 0 for 0° ≤ θ ≤ 360°.',
-    options: null, correctAnswer: '30, 150, 270',
-    explanation: 'Let s = sinθ. 2s² + s − 1 = 0 → (2s−1)(s+1) = 0. sinθ = ½ → θ = 30°, 150°. sinθ = −1 → θ = 270°.',
-    commonMistakes: ['Missing solutions in different quadrants', 'Factoring incorrectly'],
-    teachingSteps: [
-      'Substitute s = sinθ',
-      'Factor: (2s−1)(s+1) = 0',
-      's = ½ or s = −1',
-      'Find all θ in range: 30°, 150°, 270°',
-    ],
-    aiMarkable: true, markScheme: ['Correct factorisation [1]', 'sinθ = ½ and sinθ = −1 [1]', '30° and 150° [1]', '270° [1]'],
-  },
-  {
-    id: 'math_007', subject: 'as_maths', level: 'AS', syllabus: '9709',
-    paper: 'Paper 1', topic: 'Series', subtopic: 'Arithmetic progression',
-    syllabusRef: '4.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['sequences'],
-    tags: ['AP', 'nth term'], examFrequency: 'high',
-    prompt: 'An arithmetic sequence has first term 5 and common difference 3. What is the 20th term?',
-    options: ['60', '62', '65', '57'],
-    correctAnswer: 1,
-    explanation: 'aₙ = a + (n−1)d = 5 + 19(3) = 5 + 57 = 62.',
-    commonMistakes: ['Using n instead of n−1', 'Adding instead of multiplying d'],
-    teachingSteps: ['Use aₙ = a + (n−1)d', 'a₂₀ = 5 + (20−1)(3)', '= 5 + 57 = 62'],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'math_008', subject: 'as_maths', level: 'AS', syllabus: '9709',
-    paper: 'Paper 6', topic: 'Statistics', subtopic: 'Probability',
-    syllabusRef: 'S1.5', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'calculation', marks: 2,
-    skillsTested: ['probability'],
-    tags: ['independent events'], examFrequency: 'high',
-    prompt: 'Two fair dice are thrown. What is the probability that the sum is 7?',
-    options: null, correctAnswer: '1/6',
-    explanation: 'Combinations summing to 7: (1,6)(2,5)(3,4)(4,3)(5,2)(6,1) = 6 out of 36. P = 6/36 = 1/6.',
-    commonMistakes: ['Counting combinations wrong', 'Using 12 instead of 36 total outcomes'],
-    teachingSteps: ['Total outcomes = 6 × 6 = 36', 'List pairs summing to 7', 'Count: 6 favourable outcomes', 'P = 6/36 = 1/6'],
-    aiMarkable: true, markScheme: ['6 favourable or 36 total [1]', '1/6 or equivalent [1]'],
-  },
-
-  // ─── IGCSE BIOLOGY ─────────────────────────────────────────────
-  {
-    id: 'bio_001', subject: 'ig_biology', level: 'IGCSE', syllabus: '0610',
-    paper: 'Paper 2', topic: 'Cell Structure', subtopic: 'Plant vs animal cells',
-    syllabusRef: '2.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['recall'],
-    tags: ['cells', 'organelles'], examFrequency: 'high',
-    prompt: 'Which structure is found in plant cells but NOT in animal cells?',
-    options: ['Nucleus', 'Cell wall', 'Mitochondria', 'Cell membrane'],
-    correctAnswer: 1,
-    explanation: 'Cell walls made of cellulose are unique to plant cells. Both plant and animal cells have nuclei, mitochondria, and cell membranes.',
-    commonMistakes: ['Confusing cell wall with cell membrane', 'Thinking mitochondria are plant-only'],
-    teachingSteps: [
-      'Plant cells have: cell wall, chloroplasts, large vacuole',
-      'Animal cells lack these three',
-      'Both have: nucleus, membrane, mitochondria, ribosomes',
-    ],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'bio_002', subject: 'ig_biology', level: 'IGCSE', syllabus: '0610',
-    paper: 'Paper 2', topic: 'Enzymes', subtopic: 'Lock and key model',
-    syllabusRef: '5.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'short-answer', marks: 3,
-    skillsTested: ['explanation', 'application'],
-    tags: ['enzymes', 'denaturation'], examFrequency: 'high',
-    prompt: 'Explain why enzymes stop working at high temperatures.',
-    options: null, correctAnswer: null,
-    explanation: "At high temperatures, the kinetic energy causes bonds holding the enzyme's tertiary structure to break. The active site changes shape (denatures) and the substrate can no longer fit, so the reaction cannot be catalysed.",
-    commonMistakes: ["Saying the enzyme 'dies'", 'Confusing denaturation with reversible effects of low temperature'],
-    teachingSteps: [
-      'Enzymes have a specific 3D shape',
-      'High temperature breaks bonds in the enzyme',
-      'Active site changes shape = denaturation',
-      'Substrate no longer fits = no reaction',
-    ],
-    aiMarkable: true, markScheme: ['Bonds in enzyme break / tertiary structure disrupted [1]', 'Active site changes shape [1]', 'Substrate no longer fits / complementary [1]'],
-  },
-  {
-    id: 'bio_003', subject: 'ig_biology', level: 'IGCSE', syllabus: '0610',
-    paper: 'Paper 4', topic: 'Photosynthesis', subtopic: 'Limiting factors',
-    syllabusRef: '6.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['application'],
-    tags: ['photosynthesis', 'graphs'], examFrequency: 'high',
-    prompt: 'A plant is in bright light with plenty of CO₂. Which factor is most likely to be limiting photosynthesis?',
-    options: ['Light intensity', 'Carbon dioxide concentration', 'Temperature', 'Water availability'],
+    id: 'q009', subject: 'igcse_bio', topic: 'Cell Biology', subtopic: 'Animal & plant cells',
+    questionType: 'mcq', difficulty: 'easy', marks: 1,
+    prompt: 'Which organelle is responsible for photosynthesis in plant cells?',
+    options: ['Mitochondria', 'Ribosome', 'Chloroplast', 'Vacuole'],
     correctAnswer: 2,
-    explanation: 'With bright light and plenty of CO₂, temperature becomes the limiting factor as it affects enzyme activity in the Calvin cycle.',
-    commonMistakes: ["Choosing light when it's already bright", 'Ignoring enzyme dependency on temperature'],
-    teachingSteps: [
-      'Identify which factors are already abundant',
-      'Light = bright ✓, CO₂ = plenty ✓',
-      'Temperature controls enzyme rate',
-      'Temperature is the limiting factor',
-    ],
-    aiMarkable: false, markScheme: null,
+    markScheme: ['Chloroplasts contain chlorophyll and are the site of photosynthesis'],
+    explanation: 'Chloroplasts are unique to plant cells and contain the pigment chlorophyll.',
+    tags: ['cells', 'organelles'],
   },
   {
-    id: 'bio_004', subject: 'ig_biology', level: 'IGCSE', syllabus: '0610',
-    paper: 'Paper 2', topic: 'Respiration', subtopic: 'Aerobic vs anaerobic',
-    syllabusRef: '7.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['recall', 'comparison'],
-    tags: ['respiration', 'ATP'], examFrequency: 'high',
-    prompt: 'Which is a product of anaerobic respiration in yeast?',
-    options: ['Oxygen', 'Carbon dioxide and ethanol', 'Lactic acid only', 'Water and glucose'],
-    correctAnswer: 1,
-    explanation: 'In yeast, anaerobic respiration produces ethanol and carbon dioxide. In animals, it produces lactic acid.',
-    commonMistakes: ['Confusing yeast and animal anaerobic products', 'Including oxygen as a product'],
-    teachingSteps: [
-      'Anaerobic = without oxygen',
-      'In yeast: glucose → ethanol + CO₂',
-      'In animals: glucose → lactic acid',
-      "Don't mix these up!",
+    id: 'q010', subject: 'igcse_bio', topic: 'Enzymes & Nutrition', subtopic: 'Enzyme action',
+    questionType: 'short-answer', difficulty: 'medium', marks: 4,
+    prompt: 'Explain how pH affects enzyme activity. Include reference to the active site.',
+    markScheme: [
+      'Enzymes have an optimum pH [1]',
+      'Above/below optimum, activity decreases [1]',
+      'Extreme pH alters bonds in the enzyme\'s tertiary structure [1]',
+      'Active site changes shape — substrate cannot bind (denaturation) [1]',
     ],
-    aiMarkable: false, markScheme: null,
+    explanation: 'pH affects the ionisation of amino acids in the active site, altering its 3D shape.',
+    tags: ['enzymes', 'pH'],
   },
   {
-    id: 'bio_005', subject: 'ig_biology', level: 'IGCSE', syllabus: '0610',
-    paper: 'Paper 4', topic: 'Genetics', subtopic: 'Monohybrid crosses',
-    syllabusRef: '16.1', difficulty: 'hard', difficultyScore: 3,
-    questionType: 'short-answer', marks: 4,
-    skillsTested: ['genetics', 'Punnett square'],
-    tags: ['inheritance', 'dominant', 'recessive'], examFrequency: 'high',
-    prompt: 'In pea plants, tall (T) is dominant over short (t). Two heterozygous plants are crossed. What ratio of tall to short offspring is expected?',
-    options: null, correctAnswer: '3:1',
-    explanation: 'Tt × Tt → TT, Tt, Tt, tt. Phenotype ratio: 3 tall : 1 short.',
-    commonMistakes: ['Writing genotype ratio instead of phenotype ratio', 'Forgetting heterozygous means Tt'],
-    teachingSteps: [
-      'Parents: Tt × Tt',
-      'Draw Punnett square',
-      'Offspring: TT, Tt, Tt, tt',
-      'Phenotypes: 3 tall (TT+Tt+Tt) : 1 short (tt)',
-    ],
-    aiMarkable: true, markScheme: ['Correct parental genotypes [1]', 'Punnett square correct [1]', 'All four offspring genotypes [1]', '3:1 ratio stated [1]'],
-  },
-  {
-    id: 'bio_006', subject: 'ig_biology', level: 'IGCSE', syllabus: '0610',
-    paper: 'Paper 4', topic: 'Ecology', subtopic: 'Food chains',
-    syllabusRef: '19.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['ecology'],
-    tags: ['food chain', 'energy transfer'], examFrequency: 'medium',
-    prompt: 'In a food chain, what happens to the amount of energy at each trophic level?',
-    options: ['It increases', 'It stays the same', 'It decreases', 'It doubles'],
+    id: 'q011', subject: 'igcse_bio', topic: 'Respiration & Gas Exchange', subtopic: 'Aerobic respiration',
+    questionType: 'mcq', difficulty: 'easy', marks: 1,
+    prompt: 'What are the products of aerobic respiration?',
+    options: ['Water only', 'Carbon dioxide and lactic acid', 'Carbon dioxide and water', 'Glucose and oxygen'],
     correctAnswer: 2,
-    explanation: 'Energy decreases at each trophic level because organisms use energy for life processes (respiration) and some is lost as heat.',
-    commonMistakes: ['Thinking energy increases up the chain', 'Forgetting energy loss through respiration'],
-    teachingSteps: [
-      'Energy enters via producers (photosynthesis)',
-      'At each level, ~90% is lost',
-      'Lost to: respiration, heat, excretion',
-      'Only ~10% passes to next level',
-    ],
-    aiMarkable: false, markScheme: null,
+    markScheme: ['C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O (+ATP)'],
+    explanation: 'Aerobic respiration breaks down glucose using oxygen, producing CO₂ and water.',
+    tags: ['respiration'],
   },
-
-  // ─── IGCSE CHEMISTRY ───────────────────────────────────────────
+  // ── IGCSE Chemistry ─────────────────────────────────────────────
   {
-    id: 'chem_001', subject: 'ig_chemistry', level: 'IGCSE', syllabus: '0620',
-    paper: 'Paper 2', topic: 'Atomic Structure', subtopic: 'Subatomic particles',
-    syllabusRef: '3.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['recall'],
-    tags: ['atoms', 'protons', 'electrons'], examFrequency: 'high',
-    prompt: 'An atom of sodium-23 has 11 protons. How many neutrons does it have?',
-    options: ['11', '12', '23', '34'],
+    id: 'q012', subject: 'igcse_chem', topic: 'Stoichiometry', subtopic: 'Moles',
+    questionType: 'calculation', difficulty: 'medium', marks: 3,
+    prompt: 'Calculate the moles in 11 g of CO₂. [Ar: C=12, O=16]',
+    correctAnswer: '0.25',
+    markScheme: [
+      'M(CO₂) = 12 + 32 = 44 g/mol',
+      'n = 11/44 = 0.25 mol',
+    ],
+    explanation: 'Moles = mass ÷ molar mass.',
+    tags: ['moles'],
+  },
+  {
+    id: 'q013', subject: 'igcse_chem', topic: 'Bonding & Structure', subtopic: 'Ionic bonding',
+    questionType: 'short-answer', difficulty: 'medium', marks: 4,
+    prompt: 'Describe ionic bond formation between Na and Cl, and explain why NaCl has a high melting point.',
+    markScheme: [
+      'Na loses one electron → Na⁺ [1]',
+      'Cl gains one electron → Cl⁻ [1]',
+      'Electrostatic attraction between ions forms the bond [1]',
+      'Giant ionic lattice — many strong forces require high energy to overcome → high mp [1]',
+    ],
+    explanation: 'Ionic bonds form by electron transfer. The lattice structure means all bonds must be broken simultaneously.',
+    tags: ['bonding', 'ionic'],
+  },
+  // ── IGCSE Economics ─────────────────────────────────────────────
+  {
+    id: 'q014', subject: 'igcse_econ', topic: 'Demand & Supply', subtopic: 'Elasticities (PED, PES, YED, XED)',
+    questionType: 'mcq', difficulty: 'easy', marks: 1,
+    prompt: 'Price rises 10%, quantity demanded falls 20%. What is PED?',
+    options: ['–0.5', '–2', '2', '0.5'],
     correctAnswer: 1,
-    explanation: 'Neutrons = mass number − proton number = 23 − 11 = 12.',
-    commonMistakes: ['Adding instead of subtracting', 'Confusing mass number with atomic number'],
-    teachingSteps: ['Mass number = protons + neutrons', '23 = 11 + neutrons', 'Neutrons = 23 − 11 = 12'],
-    aiMarkable: false, markScheme: null,
+    markScheme: ['PED = %ΔQd / %ΔP = –20/10 = –2'],
+    explanation: 'PED = %ΔQd ÷ %ΔP. Value of –2 indicates elastic demand.',
+    tags: ['elasticity', 'PED'],
   },
   {
-    id: 'chem_002', subject: 'ig_chemistry', level: 'IGCSE', syllabus: '0620',
-    paper: 'Paper 2', topic: 'Bonding', subtopic: 'Ionic bonding',
-    syllabusRef: '4.2', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'short-answer', marks: 3,
-    skillsTested: ['bonding', 'explanation'],
-    tags: ['ionic', 'electrons'], examFrequency: 'high',
-    prompt: 'Describe what happens to the electrons when sodium reacts with chlorine to form sodium chloride.',
-    options: null, correctAnswer: null,
-    explanation: "Sodium loses one electron from its outer shell to form Na⁺. Chlorine gains this electron to form Cl⁻. The oppositely charged ions attract each other (ionic bond).",
-    commonMistakes: ["Saying atoms 'share' electrons (that's covalent)", 'Forgetting to mention the electrostatic attraction'],
-    teachingSteps: [
-      'Na has 1 outer electron → loses it → Na⁺',
-      'Cl has 7 outer electrons → gains 1 → Cl⁻',
-      'Both now have full outer shells',
-      'Na⁺ and Cl⁻ attract = ionic bond',
+    id: 'q015', subject: 'igcse_econ', topic: 'Macroeconomics', subtopic: 'Inflation',
+    questionType: 'essay', difficulty: 'hard', marks: 8,
+    prompt: 'Evaluate the causes and effects of high inflation in a developing economy, considering both demand-pull and cost-push inflation.',
+    markScheme: [
+      'Definition: sustained rise in general price level [1]',
+      'Demand-pull: excess AD (consumer boom, government spending) [2]',
+      'Cost-push: rising input costs (wages, oil prices) [2]',
+      'Effects: erodes purchasing power, hurts savers, redistributes income [2]',
+      'Developing economy: imported inflation, weak monetary tools [2]',
+      'Policy responses: interest rates, supply-side reform [1]',
+      'Evaluation of relative significance [1]',
     ],
-    aiMarkable: true, markScheme: ['Sodium loses electron / forms Na⁺ [1]', 'Chlorine gains electron / forms Cl⁻ [1]', 'Electrostatic attraction between ions [1]'],
+    explanation: 'Inflation in developing economies is often amplified by structural weaknesses.',
+    tags: ['inflation', 'macroeconomics'],
   },
+  // ── IGCSE English Literature ─────────────────────────────────────
   {
-    id: 'chem_003', subject: 'ig_chemistry', level: 'IGCSE', syllabus: '0620',
-    paper: 'Paper 4', topic: 'Stoichiometry', subtopic: 'Moles',
-    syllabusRef: '5.1', difficulty: 'hard', difficultyScore: 3,
-    questionType: 'calculation', marks: 3,
-    skillsTested: ['moles', 'calculation'],
-    tags: ['moles', 'mass', 'Mr'], examFrequency: 'high',
-    prompt: 'Calculate the number of moles in 5.3 g of Na₂CO₃. (Aᵣ: Na = 23, C = 12, O = 16)',
-    options: null, correctAnswer: '0.050',
-    explanation: 'Mr of Na₂CO₃ = 2(23) + 12 + 3(16) = 106. Moles = mass/Mr = 5.3/106 = 0.050 mol.',
-    commonMistakes: ['Calculating Mr incorrectly', 'Dividing Mr by mass instead of mass by Mr'],
-    teachingSteps: ['Find Mr: 2(23) + 12 + 3(16) = 106', 'Use n = m/Mr', 'n = 5.3/106', 'n = 0.050 mol'],
-    aiMarkable: true, markScheme: ['Mr = 106 [1]', 'n = m/Mr used [1]', '0.050 mol [1]'],
-  },
-  {
-    id: 'chem_004', subject: 'ig_chemistry', level: 'IGCSE', syllabus: '0620',
-    paper: 'Paper 2', topic: 'Acids and Bases', subtopic: 'pH scale',
-    syllabusRef: '8.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['recall'],
-    tags: ['acids', 'pH', 'indicators'], examFrequency: 'high',
-    prompt: 'What is the pH of a neutral solution?',
-    options: ['0', '7', '14', '1'],
-    correctAnswer: 1,
-    explanation: 'Neutral pH is 7. Acids are below 7, alkalis are above 7.',
-    commonMistakes: ['Thinking neutral is pH 0', 'Confusing pH scale direction'],
-    teachingSteps: ['pH scale: 0–14', 'Acids: pH < 7', 'Neutral: pH = 7', 'Alkalis: pH > 7'],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'chem_005', subject: 'ig_chemistry', level: 'IGCSE', syllabus: '0620',
-    paper: 'Paper 4', topic: 'Electrolysis', subtopic: 'Products',
-    syllabusRef: '6.2', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['electrolysis'],
-    tags: ['electrolysis', 'electrodes'], examFrequency: 'medium',
-    prompt: 'During the electrolysis of concentrated sodium chloride solution, what gas is produced at the positive electrode (anode)?',
-    options: ['Hydrogen', 'Oxygen', 'Chlorine', 'Sodium'],
-    correctAnswer: 2,
-    explanation: 'At the anode, chloride ions are discharged: 2Cl⁻ → Cl₂ + 2e⁻. Chlorine gas is produced.',
-    commonMistakes: ['Confusing anode and cathode products', 'Thinking sodium is produced at an electrode'],
-    teachingSteps: [
-      'Anode = positive electrode',
-      'Negative ions go to anode',
-      'Cl⁻ ions are discharged',
-      '2Cl⁻ → Cl₂ + 2e⁻',
+    id: 'q016', subject: 'igcse_englit', topic: 'Critical Writing', subtopic: 'PEE paragraphs',
+    questionType: 'short-answer', difficulty: 'medium', marks: 4,
+    prompt: 'Explain the PEE structure for analytical paragraphs. What does each letter stand for and why is the final E the most important?',
+    markScheme: [
+      'P = Point: the analytical argument you are making [1]',
+      'E = Evidence: a quotation or reference from the text [1]',
+      'E = Explanation: analysis of HOW the evidence supports the point [1]',
+      'Final E most important: shows critical thinking, not just summary [1]',
     ],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'chem_006', subject: 'ig_chemistry', level: 'IGCSE', syllabus: '0620',
-    paper: 'Paper 2', topic: 'Organic Chemistry', subtopic: 'Alkanes',
-    syllabusRef: '11.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['organic chemistry'],
-    tags: ['alkanes', 'hydrocarbons'], examFrequency: 'medium',
-    prompt: 'What is the molecular formula of butane?',
-    options: ['C₃H₈', 'C₄H₈', 'C₄H₁₀', 'C₅H₁₂'],
-    correctAnswer: 2,
-    explanation: 'Butane is an alkane (CₙH₂ₙ₊₂). For n = 4: C₄H₁₀.',
-    commonMistakes: ['Using the alkene formula CₙH₂ₙ', 'Miscounting carbons'],
-    teachingSteps: ['Alkane general formula: CₙH₂ₙ₊₂', "'But-' prefix = 4 carbons", 'H = 2(4) + 2 = 10', 'Molecular formula: C₄H₁₀'],
-    aiMarkable: false, markScheme: null,
-  },
-
-  // ─── IGCSE ECONOMICS ───────────────────────────────────────────
-  {
-    id: 'econ_001', subject: 'ig_economics', level: 'IGCSE', syllabus: '0455',
-    paper: 'Paper 1', topic: 'Basic Economic Problem', subtopic: 'Scarcity and choice',
-    syllabusRef: '1.1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['concepts'],
-    tags: ['scarcity', 'opportunity cost'], examFrequency: 'high',
-    prompt: 'The basic economic problem arises because:',
-    options: [
-      'Governments do not plan properly',
-      'Resources are unlimited but wants are limited',
-      'Resources are limited but wants are unlimited',
-      'People are greedy',
-    ],
-    correctAnswer: 2,
-    explanation: 'The fundamental economic problem is that resources (factors of production) are scarce/limited while human wants are unlimited.',
-    commonMistakes: ['Reversing limited/unlimited', 'Choosing a moral rather than economic answer'],
-    teachingSteps: ['Resources = land, labour, capital, enterprise', 'These are finite/scarce', 'Human wants are infinite', 'This creates the need to choose = scarcity'],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'econ_002', subject: 'ig_economics', level: 'IGCSE', syllabus: '0455',
-    paper: 'Paper 1', topic: 'Demand and Supply', subtopic: 'Demand shifts',
-    syllabusRef: '2.2', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['analysis', 'diagrams'],
-    tags: ['demand', 'shift'], examFrequency: 'high',
-    prompt: 'If the price of a substitute good increases, what happens to the demand curve for the original good?',
-    options: ['Shifts left', 'Stays the same', 'Movement along the curve', 'Shifts right'],
-    correctAnswer: 3,
-    explanation: "If a substitute becomes more expensive, consumers switch to the original good, increasing its demand (rightward shift).",
-    commonMistakes: ['Confusing shift with movement along curve', 'Confusing substitutes and complements'],
-    teachingSteps: [
-      'Substitute = alternative good',
-      'Substitute price ↑ → people buy less of it',
-      'They buy more of original good instead',
-      'Demand curve shifts right',
-    ],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'econ_003', subject: 'ig_economics', level: 'IGCSE', syllabus: '0455',
-    paper: 'Paper 2', topic: 'Market Failure', subtopic: 'Externalities',
-    syllabusRef: '3.3', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'short-answer', marks: 4,
-    skillsTested: ['analysis', 'evaluation'],
-    tags: ['externalities', 'market failure'], examFrequency: 'high',
-    prompt: 'Explain what is meant by a negative externality and give one example.',
-    options: null, correctAnswer: null,
-    explanation: "A negative externality is a cost imposed on third parties who are not directly involved in the production or consumption of a good. Example: Factory pollution affecting local residents' health.",
-    commonMistakes: ['Confusing private and external costs', 'Not identifying the third party'],
-    teachingSteps: [
-      'Externality = effect on third parties',
-      'Negative = harmful/costly',
-      'Third party = not buyer or seller',
-      'Example: pollution, noise, passive smoking',
-    ],
-    aiMarkable: true, markScheme: ['Cost/harm to third parties [1]', 'Not involved in transaction [1]', 'Valid example [1]', 'Explanation of how third party is affected [1]'],
-  },
-  {
-    id: 'econ_004', subject: 'ig_economics', level: 'IGCSE', syllabus: '0455',
-    paper: 'Paper 1', topic: 'Price Elasticity', subtopic: 'PED',
-    syllabusRef: '2.5', difficulty: 'hard', difficultyScore: 3,
-    questionType: 'calculation', marks: 2,
-    skillsTested: ['elasticity', 'calculation'],
-    tags: ['PED', 'elasticity'], examFrequency: 'high',
-    prompt: 'The price of a good rises from $10 to $12. Quantity demanded falls from 200 to 160. Calculate the price elasticity of demand (PED).',
-    options: null, correctAnswer: '-1',
-    explanation: '% change in Qd = (160-200)/200 × 100 = -20%. % change in price = (12-10)/10 × 100 = 20%. PED = -20/20 = -1.',
-    commonMistakes: ['Forgetting the negative sign', 'Using final values instead of original for %change'],
-    teachingSteps: [
-      '% ΔQd = (160-200)/200 × 100 = -20%',
-      '% ΔP = (12-10)/10 × 100 = +20%',
-      'PED = %ΔQd / %ΔP',
-      'PED = -20/20 = -1 (unit elastic)',
-    ],
-    aiMarkable: true, markScheme: ['Correct percentage changes [1]', 'PED = −1 [1]'],
-  },
-  {
-    id: 'econ_005', subject: 'ig_economics', level: 'IGCSE', syllabus: '0455',
-    paper: 'Paper 1', topic: 'Government Intervention', subtopic: 'Taxation',
-    syllabusRef: '4.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['policy analysis'],
-    tags: ['tax', 'government'], examFrequency: 'medium',
-    prompt: 'An indirect tax on cigarettes would most likely:',
-    options: ['Shift the demand curve left', 'Shift the supply curve left', 'Increase supply', 'Reduce price'],
-    correctAnswer: 1,
-    explanation: 'An indirect tax increases production costs, shifting the supply curve leftward (upward). This leads to higher price and lower quantity.',
-    commonMistakes: ['Thinking tax shifts demand', 'Confusing direct and indirect tax effects'],
-    teachingSteps: [
-      'Indirect tax = tax on goods/services',
-      'Added to production cost',
-      'Supply curve shifts left/up',
-      'Price rises, quantity falls',
-    ],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'econ_006', subject: 'ig_economics', level: 'IGCSE', syllabus: '0455',
-    paper: 'Paper 2', topic: 'International Trade', subtopic: 'Trade barriers',
-    syllabusRef: '7.1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'essay', marks: 6,
-    skillsTested: ['evaluation', 'extended writing'],
-    tags: ['trade', 'protectionism'], examFrequency: 'medium',
-    prompt: 'Discuss whether a government should use tariffs to protect domestic industries.',
-    options: null, correctAnswer: null,
-    explanation: 'Arguments for: protects infant industries, preserves jobs, prevents dumping, maintains strategic industries. Arguments against: higher prices for consumers, retaliation from trading partners, inefficiency, reduced choice.',
-    commonMistakes: ['Only giving one side of the argument', 'Not providing a conclusion'],
-    teachingSteps: [
-      'Define tariff: tax on imports',
-      'Arguments FOR protection (2-3 points)',
-      'Arguments AGAINST protection (2-3 points)',
-      'Conclude with balanced evaluation',
-    ],
-    aiMarkable: true, markScheme: ['Definition of tariff [1]', 'Arguments for (max 2 marks) [2]', 'Arguments against (max 2 marks) [2]', 'Balanced conclusion [1]'],
-  },
-
-  // ─── IGCSE ENGLISH LITERATURE ──────────────────────────────────
-  {
-    id: 'eng_001', subject: 'ig_english', level: 'IGCSE', syllabus: '0475',
-    paper: 'Paper 1', topic: 'Poetry Analysis', subtopic: 'Poetic devices',
-    syllabusRef: 'P1', difficulty: 'easy', difficultyScore: 1,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['literary devices'],
-    tags: ['poetry', 'techniques'], examFrequency: 'high',
-    prompt: "'The wind howled through the trees' is an example of:",
-    options: ['Simile', 'Metaphor', 'Personification', 'Alliteration'],
-    correctAnswer: 2,
-    explanation: "Personification gives human qualities to non-human things. 'Howled' is a human/animal action attributed to the wind.",
-    commonMistakes: ['Confusing personification with metaphor', 'Not identifying the human quality'],
-    teachingSteps: [
-      'Personification = human qualities to non-human',
-      "'Howled' = human/animal action",
-      "Applied to 'wind' = non-human",
-      'Therefore = personification',
-    ],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'eng_002', subject: 'ig_english', level: 'IGCSE', syllabus: '0475',
-    paper: 'Paper 1', topic: 'Prose Analysis', subtopic: 'Character analysis',
-    syllabusRef: 'P1', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'essay', marks: 8,
-    skillsTested: ['analysis', 'PEE paragraphs'],
-    tags: ['character', 'analysis', 'essay'], examFrequency: 'high',
-    prompt: "How does the writer use language to create a sense of tension in the following passage? 'The door creaked open. Shadows stretched across the floor like dark fingers reaching for her ankles. She held her breath.'",
-    options: null, correctAnswer: null,
-    explanation: "Tension is created through: auditory imagery ('creaked'), a simile comparing shadows to 'dark fingers' suggesting threat, personification of shadows 'reaching', short sentence 'She held her breath' creating urgency.",
-    commonMistakes: ['Identifying techniques without explaining their effect', 'Retelling rather than analysing'],
-    teachingSteps: [
-      'Point: Identify a technique',
-      'Evidence: Quote the exact words',
-      'Explain: How does it create tension?',
-      'Repeat for 2-3 techniques',
-      'Link back to the question',
-    ],
-    aiMarkable: true, markScheme: ['Identifies relevant language features [2]', 'Selects appropriate quotations [2]', 'Explains effect on reader [2]', 'Focused analysis linked to tension [2]'],
-  },
-  {
-    id: 'eng_003', subject: 'ig_english', level: 'IGCSE', syllabus: '0475',
-    paper: 'Paper 2', topic: 'Drama', subtopic: 'Themes',
-    syllabusRef: 'P2', difficulty: 'medium', difficultyScore: 2,
-    questionType: 'mcq', marks: 1,
-    skillsTested: ['themes'],
-    tags: ['drama', 'themes'], examFrequency: 'medium',
-    prompt: "In Shakespeare's plays, dramatic irony occurs when:",
-    options: [
-      'Two characters argue on stage',
-      'The audience knows something a character does not',
-      'A character speaks directly to the audience',
-      'The plot has a surprising twist',
-    ],
-    correctAnswer: 1,
-    explanation: 'Dramatic irony is when the audience has knowledge that characters on stage do not, creating tension or humour.',
-    commonMistakes: ['Confusing dramatic irony with a soliloquy', 'Confusing it with a plot twist'],
-    teachingSteps: [
-      'Dramatic irony = audience knows more',
-      'Character is unaware of key information',
-      'Creates tension, humour, or pathos',
-      'Different from verbal irony or situational irony',
-    ],
-    aiMarkable: false, markScheme: null,
-  },
-  {
-    id: 'eng_004', subject: 'ig_english', level: 'IGCSE', syllabus: '0475',
-    paper: 'Paper 1', topic: 'Prose Analysis', subtopic: "Writer's effects",
-    syllabusRef: 'P1', difficulty: 'hard', difficultyScore: 3,
-    questionType: 'short-answer', marks: 4,
-    skillsTested: ['analysis', 'language'],
-    tags: ['imagery', "writer's craft"], examFrequency: 'high',
-    prompt: "Explain the effect of the metaphor: 'Time is a thief that steals our youth.'",
-    options: null, correctAnswer: null,
-    explanation: "The metaphor compares time to a thief, suggesting time takes away youth without permission, creating a sense of loss and inevitability. 'Steals' implies something valuable is being taken against our will.",
-    commonMistakes: ['Just identifying it as a metaphor without analysing effect', "Not exploring connotations of 'thief' and 'steals'"],
-    teachingSteps: [
-      "Identify: metaphor comparing time to a thief",
-      "Connotation of 'thief': criminal, takes without asking",
-      "'Steals' implies loss is unwanted, inevitable",
-      "Effect: reader feels time passing is a kind of loss",
-    ],
-    aiMarkable: true, markScheme: ['Identifies comparison (time/thief) [1]', "Explores connotation of 'thief' [1]", "'Steals' and loss [1]", "Comments on reader's response/effect [1]"],
+    explanation: 'PEE forces you to analyse rather than describe. The explanation is where marks are earned.',
+    tags: ['essay writing', 'structure'],
   },
 ];
 
-const QUESTION_MAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
+/* ── Question map & helpers ─────────────────────────────────────── */
+let QUESTION_MAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
 
-function getTopicsForSubject(subjectId) {
-  return [...new Set(QUESTIONS.filter(q => q.subject === subjectId).map(q => q.topic))];
-}
-
-function getPapersForSubject(subjectId) {
-  return [...new Set(QUESTIONS.filter(q => q.subject === subjectId).map(q => q.paper))];
-}
-
-function getQuestionsForSubject(subjectId) {
-  return QUESTIONS.filter(q => q.subject === subjectId);
-}
-
-function filterQuestions(subjectId, filters) {
-  return QUESTIONS.filter(q => {
-    if (subjectId && q.subject !== subjectId) return false;
-    if (filters.paper && filters.paper !== 'all' && q.paper !== filters.paper) return false;
-    if (filters.topic && filters.topic !== 'all' && q.topic !== filters.topic) return false;
-    if (filters.difficulty && filters.difficulty !== 'all' && q.difficulty !== filters.difficulty) return false;
-    if (filters.questionType && filters.questionType !== 'all' && q.questionType !== filters.questionType) return false;
-    return true;
-  });
+function filterQuestions(subjectId, filters = {}) {
+  let qs = QUESTIONS.filter(q => q.subject === subjectId);
+  if (filters.topic)      qs = qs.filter(q => q.topic === filters.topic);
+  if (filters.subtopic)   qs = qs.filter(q => q.subtopic === filters.subtopic);
+  if (filters.difficulty) qs = qs.filter(q => q.difficulty === filters.difficulty);
+  if (filters.type)       qs = qs.filter(q => q.questionType === filters.type);
+  return qs;
 }
 
 function shuffleArray(arr) {
@@ -749,4 +602,25 @@ function shuffleArray(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+function getTopicsForSubject(subjectId) {
+  const s = SUBJECT_MAP[subjectId];
+  if (!s) return [];
+  return s.topics.flatMap(t => [t.name, ...t.subtopics]);
+}
+
+function getPapersForSubject(subjectId) {
+  const qs = QUESTIONS.filter(q => q.subject === subjectId);
+  return [...new Set(qs.map(q => q.paper).filter(Boolean))];
+}
+
+function getSubjectSyllabusContext(subjectId) {
+  const s = SUBJECT_MAP[subjectId];
+  if (!s) return '';
+  const topicList = s.topics.map(t =>
+    `  ${t.name}:\n    - ${t.subtopics.join('\n    - ')}`
+  ).join('\n');
+  const level = LEVEL_MAP[s.level]?.name || s.level;
+  return `Subject: ${s.name} (${level})\nSyllabus code: ${s.syllabus}\n\nTopics:\n${topicList}`;
 }

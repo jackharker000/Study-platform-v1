@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Tutor — Study Platform</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body style="display:flex;flex-direction:column;height:100vh;overflow:hidden;">
+
+<nav class="nav" style="flex-shrink:0;">
+  <a href="index.html" class="nav-back">&#8592; Home</a>
+  <div class="nav-brand" style="margin-left:8px;">🤖 AI Tutor</div>
+  <div class="nav-spacer"></div>
+  <span data-ai-status style="font-size:.78rem;color:var(--text-dim);"></span>
+</nav>
+
+<!-- ── Sidebar + Chat layout ─────────────────────────────────────── -->
+<div style="display:flex;flex:1;overflow:hidden;">
+
+  <!-- Sidebar -->
+  <div id="sidebar" style="width:240px;flex-shrink:0;border-right:1px solid var(--border);background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden;">
+    <!-- Subject selector -->
+    <div style="padding:14px 14px 8px;border-bottom:1px solid var(--border);">
+      <div class="form-label mb-2">Subject context</div>
+      <select class="input" id="subjectSelect" style="font-size:.83rem;">
+        <option value="">General (no subject)</option>
+      </select>
+    </div>
+
+    <!-- AI status -->
+    <div style="padding:12px 14px;border-bottom:1px solid var(--border);">
+      <div style="font-size:.75rem;font-weight:700;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">AI Status</div>
+      <div id="aiStatusDetail" style="font-size:.8rem;color:var(--text-dim);">Loading model…</div>
+      <div style="height:4px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden;">
+        <div data-ai-progress style="height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .5s;"></div>
+      </div>
+    </div>
+
+    <!-- Conversation starters -->
+    <div style="padding:12px 14px;flex:1;overflow-y:auto;">
+      <div style="font-size:.75rem;font-weight:700;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;">Quick prompts</div>
+      <div id="quickPrompts"></div>
+    </div>
+
+    <!-- New chat -->
+    <div style="padding:12px 14px;border-top:1px solid var(--border);">
+      <button class="btn btn-ghost btn-sm" style="width:100%;" onclick="newChat()">+ New Conversation</button>
+    </div>
+  </div>
+
+  <!-- Chat panel -->
+  <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+    <!-- Messages -->
+    <div id="chatMessages" style="flex:1;overflow-y:auto;padding:20px 24px;display:flex;flex-direction:column;gap:14px;">
+      <div id="welcomeMsg" style="text-align:center;padding:40px 0 20px;max-width:480px;margin:0 auto;">
+        <div style="font-size:2.5rem;margin-bottom:12px;">🤖</div>
+        <div style="font-size:1.1rem;font-weight:700;color:var(--text-bright);margin-bottom:6px;">AI Tutor</div>
+        <div style="font-size:.875rem;color:var(--text-dim);line-height:1.6;">
+          Ask me anything about your Cambridge subjects — topics, past questions, exam technique, or concepts you don't understand.
+        </div>
+        <div id="gpuWarning" class="hidden" style="margin-top:16px;background:var(--amber-bg);border:1px solid rgba(217,119,6,.3);border-radius:var(--radius);padding:10px 14px;font-size:.8rem;color:var(--amber);">
+          ⚠ WebGPU not detected. AI requires Chrome 113+ or Edge 113+ with a GPU.
+        </div>
+        <div id="modelLoading" style="margin-top:16px;font-size:.82rem;color:var(--text-dim);">
+          <span class="spinner" style="width:12px;height:12px;border-width:2px;vertical-align:middle;margin-right:6px;"></span>
+          Downloading AI model (first time only, ~5 GB cached after)…
+        </div>
+      </div>
+    </div>
+
+    <!-- File attachment preview -->
+    <div id="attachPreview" class="hidden" style="padding:8px 20px;background:var(--bg-input);border-top:1px solid var(--border);font-size:.8rem;color:var(--text-dim);display:flex;align-items:center;gap:8px;">
+      <span id="attachPreviewText"></span>
+      <button onclick="clearAttach()" style="background:none;border:none;color:var(--red);cursor:pointer;">✕</button>
+    </div>
+
+    <!-- Input -->
+    <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:flex-end;background:var(--bg);">
+      <label style="cursor:pointer;padding:9px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-dim);transition:background .15s;flex-shrink:0;" title="Attach PDF or text file">
+        📎
+        <input type="file" id="attachInput" accept=".pdf,.txt,.md,.csv,image/*" style="display:none;" onchange="handleAttach(this)">
+      </label>
+      <textarea id="msgInput" class="textarea" rows="2"
+        style="flex:1;resize:none;min-height:44px;max-height:180px;padding:10px 14px;"
+        placeholder="Ask anything — paste a question, describe a topic, share what you're struggling with…"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMsg();}"
+        oninput="autoResize(this)"></textarea>
+      <button class="btn btn-primary" id="sendBtn" onclick="sendMsg()" style="align-self:flex-end;padding:10px 20px;">Send</button>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  .msg-bubble {
+    max-width: 78%;
+    padding: 12px 16px;
+    border-radius: 16px;
+    font-size: .875rem;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg-user {
+    background: var(--accent);
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+  .msg-ai {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+  .msg-typing {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    padding: 12px 16px;
+    border-radius: 16px;
+    border-bottom-left-radius: 4px;
+    color: var(--text-dim);
+    font-size: .875rem;
+    align-self: flex-start;
+  }
+  .quick-prompt {
+    padding: 7px 10px;
+    border-radius: var(--radius-sm);
+    font-size: .78rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    transition: background .15s, color .15s;
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+  .quick-prompt:hover { background: var(--accent-glow); color: var(--accent); border-color: var(--accent); }
+</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="data.js"></script>
+<script src="store.js"></script>
+<script src="ai.js"></script>
+<script>
+  let chatHistory = [];
+  let attachedText = '';
+  let currentSubjectId = new URLSearchParams(location.search).get('subject') || '';
+
+  /* ── Populate subject selector ─────────────────────────────── */
+  const sel = document.getElementById('subjectSelect');
+  ALL_SUBJECTS.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s.id;
+    o.textContent = `${s.icon} ${s.name} (${s.level.toUpperCase()})`;
+    if (s.id === currentSubjectId) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.onchange = () => { currentSubjectId = sel.value; renderQuickPrompts(); };
+
+  /* ── Quick prompts ──────────────────────────────────────────── */
+  const GENERAL_PROMPTS = [
+    'What are the most common mistakes in exam answers?',
+    'How do I improve my essay structure?',
+    'Explain the difference between correlation and causation',
+    'Help me make a revision plan for my exams',
+    'What is the best way to memorise key facts?',
+  ];
+
+  function renderQuickPrompts() {
+    const container = document.getElementById('quickPrompts');
+    container.innerHTML = '';
+    const subj = currentSubjectId ? SUBJECT_MAP[currentSubjectId] : null;
+    const prompts = subj
+      ? [
+          `Explain the key topics in ${subj.name}`,
+          `What are the hardest parts of ${subj.name}?`,
+          `Give me a summary of ${subj.topics[0]?.name}`,
+          `What exam techniques matter most for ${subj.name}?`,
+          'Help me with a question I got wrong',
+        ]
+      : GENERAL_PROMPTS;
+
+    prompts.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'quick-prompt';
+      div.textContent = p;
+      div.onclick = () => { document.getElementById('msgInput').value = p; sendMsg(); };
+      container.appendChild(div);
+    });
+  }
+  renderQuickPrompts();
+
+  /* ── AI status ──────────────────────────────────────────────── */
+  document.addEventListener('webllm-progress', e => {
+    const pct = Math.round((e.detail.progress || 0) * 100);
+    document.getElementById('aiStatusDetail').textContent = `Loading… ${pct}%`;
+  });
+  document.addEventListener('webllm-ready', () => {
+    document.getElementById('aiStatusDetail').innerHTML = '<span style="color:var(--green);">✓ Ready</span>';
+    document.getElementById('modelLoading')?.remove();
+  });
+  document.addEventListener('webllm-status', e => {
+    if (e.detail.status === 'no-gpu') {
+      document.getElementById('aiStatusDetail').innerHTML = '<span style="color:var(--amber);">Needs WebGPU</span>';
+      document.getElementById('gpuWarning')?.classList.remove('hidden');
+      document.getElementById('modelLoading')?.remove();
+    }
+  });
+
+  /* ── Messaging ──────────────────────────────────────────────── */
+  async function sendMsg() {
+    const input = document.getElementById('msgInput');
+    const text  = input.value.trim();
+    if (!text && !attachedText) return;
+
+    const fullContent = attachedText
+      ? `${text}\n\n[Attached file content:]\n${attachedText}` : text;
+
+    input.value = '';
+    input.style.height = '';
+    clearAttach();
+
+    document.getElementById('welcomeMsg')?.remove();
+    appendBubble('user', text || '(Attachment)');
+    chatHistory.push({ role: 'user', content: fullContent });
+
+    const typing = document.createElement('div');
+    typing.className = 'msg-typing';
+    typing.textContent = 'Thinking…';
+    document.getElementById('chatMessages').appendChild(typing);
+    scrollChat();
+
+    document.getElementById('sendBtn').disabled = true;
+    try {
+      const reply = await chatWithAI(chatHistory, currentSubjectId || null);
+      typing.remove();
+      appendBubble('ai', reply);
+      chatHistory.push({ role: 'assistant', content: reply });
+    } catch(e) {
+      typing.remove();
+      appendBubble('ai', `Sorry, couldn't respond: ${e.message}\n\nMake sure the AI model has finished loading.`);
+    } finally {
+      document.getElementById('sendBtn').disabled = false;
+      input.focus();
+    }
+  }
+
+  function appendBubble(role, text) {
+    const div = document.createElement('div');
+    div.className = `msg-bubble msg-${role}`;
+    div.textContent = text;
+    document.getElementById('chatMessages').appendChild(div);
+    scrollChat();
+  }
+
+  function scrollChat() {
+    const el = document.getElementById('chatMessages');
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function newChat() {
+    chatHistory = [];
+    document.getElementById('chatMessages').innerHTML = '';
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+  }
+
+  /* ── File attach ─────────────────────────────────────────────── */
+  async function handleAttach(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    const preview = document.getElementById('attachPreview');
+    const previewText = document.getElementById('attachPreviewText');
+    previewText.textContent = `📎 ${file.name} (reading…)`;
+    preview.classList.remove('hidden');
+
+    if (file.type === 'application/pdf') {
+      try {
+        if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded');
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const buf = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page    = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map(it => it.str).join(' ') + '\n';
+        }
+        attachedText = text.trim();
+        previewText.textContent = `📎 ${file.name} (${pdf.numPages} pages, ${attachedText.length} chars)`;
+      } catch(e) {
+        previewText.textContent = `📎 ${file.name} — read failed: ${e.message}`;
+      }
+    } else if (file.type.startsWith('image/')) {
+      attachedText = `[Image attached: ${file.name} — note: local AI is text-only, please describe the image in words]`;
+      previewText.textContent = `📎 ${file.name} (image — describe it in your message for best results)`;
+    } else {
+      try {
+        attachedText = await file.text();
+        previewText.textContent = `📎 ${file.name} (${attachedText.length} chars)`;
+      } catch(e) {
+        previewText.textContent = `📎 ${file.name} — read failed`;
+      }
+    }
+    input.value = '';
+  }
+
+  function clearAttach() {
+    attachedText = '';
+    document.getElementById('attachPreview').classList.add('hidden');
+    document.getElementById('attachPreviewText').textContent = '';
+  }
+</script>
+</body>
+</html>

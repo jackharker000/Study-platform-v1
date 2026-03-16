@@ -1,4 +1,4 @@
-/* ── CSS Variables ─────────────────────────────────────────────── */
+/* ── CSS Variables — dark (default) ───────────────────────────── */
 :root {
   --bg: #0b0e14;
   --bg-card: #111620;
@@ -24,6 +24,37 @@
   --radius-sm: 6px;
   --radius-lg: 14px;
   --transition: .2s ease;
+  color-scheme: dark;
+}
+
+/* ── Light mode — follows browser/OS preference ────────────────── */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f0f4f8;
+    --bg-card: #ffffff;
+    --bg-card-hover: #f1f5f9;
+    --bg-input: #f8fafc;
+    --border: #e2e8f0;
+    --border-focus: #3b82f6;
+    --text: #374151;
+    --text-dim: #6b7280;
+    --text-bright: #111827;
+    --accent: #2563eb;
+    --accent-glow: rgba(37,99,235,.1);
+    --green: #16a34a;
+    --green-bg: rgba(22,163,74,.1);
+    --red: #dc2626;
+    --red-bg: rgba(220,38,38,.1);
+    --amber: #d97706;
+    --amber-bg: rgba(217,119,6,.1);
+    --purple: #7c3aed;
+    --purple-bg: rgba(124,58,237,.1);
+    --cyan: #0891b2;
+    color-scheme: light;
+  }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; }
+  .nav { background: rgba(255,255,255,.9); }
+  .card { box-shadow: 0 1px 3px rgba(0,0,0,.08); }
 }
 
 /* ── Reset ─────────────────────────────────────────────────────── */

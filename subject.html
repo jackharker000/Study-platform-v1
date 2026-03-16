@@ -9,189 +9,519 @@
 <body>
 
 <nav class="nav">
-  <a href="index.html" class="nav-back">&#8592; Back</a>
+  <a href="index.html" class="nav-back">&#8592; Subjects</a>
+  <div class="nav-brand" id="navTitle" style="margin-left:8px;">Subject</div>
   <div class="nav-spacer"></div>
-  <a href="generate.html" class="nav-link">✦ AI</a>
+  <span data-ai-status style="font-size:.78rem;color:var(--text-dim);"></span>
   <a href="dashboard.html" class="nav-link">Dashboard</a>
 </nav>
 
-<div class="container pb-8">
+<div class="container" style="padding-top:22px;padding-bottom:48px;">
+
   <!-- Subject header -->
-  <div id="subjectHeader" class="page-header fade-up" style="text-align:left; padding-bottom:24px;"></div>
+  <div class="flex items-center gap-3 mb-4 fade-up" id="subjectHeader"></div>
 
-  <!-- Mode selection -->
-  <div class="card fade-up s1 mb-4">
-    <div class="section-label mb-3">Study Mode</div>
-    <div class="mode-grid" id="modeGrid"></div>
+  <!-- Top-level mode tabs -->
+  <div class="tabs mb-4">
+    <button class="tab-btn active" id="tab-study" onclick="switchMode('study')">📚 Study</button>
+    <button class="tab-btn"        id="tab-ai"    onclick="switchMode('ai')">🤖 AI Chat</button>
+    <button class="tab-btn"        id="tab-notes" onclick="switchMode('notes')">📝 Notes</button>
   </div>
 
-  <!-- Filters -->
-  <div class="card fade-up s2 mb-4">
-    <div class="section-label mb-3">Filters</div>
+  <!-- ═══════════════ STUDY TAB ═══════════════════════════════════ -->
+  <div id="panel-study">
 
-    <div class="mb-3">
-      <div class="text-xs text-dim mb-2">Paper</div>
-      <div class="chip-row" id="paperChips"></div>
+    <!-- Filters -->
+    <div class="card mb-4">
+      <div class="section-label mb-3">Filters</div>
+      <div class="form-row" style="flex-wrap:wrap;gap:12px;">
+        <div class="form-group" style="min-width:140px;">
+          <div class="form-label">Topic</div>
+          <select class="input" id="filterTopic" onchange="updateSubtopics()">
+            <option value="">All topics</option>
+          </select>
+        </div>
+        <div class="form-group" style="min-width:140px;">
+          <div class="form-label">Subtopic</div>
+          <select class="input" id="filterSubtopic">
+            <option value="">All subtopics</option>
+          </select>
+        </div>
+        <div class="form-group" style="min-width:120px;">
+          <div class="form-label">Difficulty</div>
+          <select class="input" id="filterDiff">
+            <option value="">Any</option>
+            <option>easy</option>
+            <option>medium</option>
+            <option>hard</option>
+          </select>
+        </div>
+        <div class="form-group" style="min-width:130px;">
+          <div class="form-label">Type</div>
+          <select class="input" id="filterType">
+            <option value="">Any</option>
+            <option value="mcq">MCQ</option>
+            <option value="short-answer">Short Answer</option>
+            <option value="calculation">Calculation</option>
+            <option value="essay">Essay</option>
+          </select>
+        </div>
+        <div class="form-group" style="min-width:90px;">
+          <div class="form-label">Count</div>
+          <select class="input" id="filterCount">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="20">20</option>
+            <option value="all">All</option>
+          </select>
+        </div>
+      </div>
     </div>
 
-    <div class="mb-3">
-      <div class="text-xs text-dim mb-2">Topic</div>
-      <div class="chip-row" id="topicChips"></div>
-    </div>
+    <!-- Study modes -->
+    <div class="section-label mb-3">Study Modes</div>
+    <div id="modeGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:28px;"></div>
 
-    <div class="mb-3">
-      <div class="text-xs text-dim mb-2">Difficulty</div>
-      <div class="chip-row" id="difficultyChips"></div>
-    </div>
+    <!-- Topic practice section -->
+    <div id="topicPractice"></div>
+  </div>
 
-    <div>
-      <div class="text-xs text-dim mb-2">Question Type</div>
-      <div class="chip-row" id="typeChips"></div>
+  <!-- ═══════════════ AI CHAT TAB ═════════════════════════════════ -->
+  <div id="panel-ai" class="hidden">
+    <div class="card" style="height:calc(100vh - 260px);min-height:400px;display:flex;flex-direction:column;">
+      <!-- Chat history -->
+      <div id="chatHistory" style="flex:1;overflow-y:auto;padding:12px 4px;display:flex;flex-direction:column;gap:12px;">
+        <div id="chatWelcome" class="text-dim text-sm" style="text-align:center;padding:24px;">
+          <div style="font-size:2rem;margin-bottom:8px;">🤖</div>
+          <div style="font-weight:600;color:var(--text-bright);margin-bottom:4px;">AI Tutor ready</div>
+          <div>Ask about any topic, share a question you got wrong, or upload a file for discussion.</div>
+        </div>
+      </div>
+
+      <!-- File preview -->
+      <div id="filePreview" class="hidden" style="padding:8px 12px;border-top:1px solid var(--border);background:var(--bg-input);font-size:.8rem;color:var(--text-dim);display:flex;align-items:center;gap:8px;">
+        <span id="filePreviewText"></span>
+        <button onclick="clearFile()" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:1rem;line-height:1;">✕</button>
+      </div>
+
+      <!-- Input area -->
+      <div style="padding:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end;">
+        <label style="cursor:pointer;padding:8px;color:var(--text-dim);border-radius:var(--radius-sm);border:1px solid var(--border);transition:background .15s;" title="Attach file or image">
+          📎
+          <input type="file" id="chatFileInput" accept=".pdf,.txt,.md,image/*" style="display:none;" onchange="handleFileAttach(this)">
+        </label>
+        <textarea id="chatInput" class="textarea" rows="2"
+          style="flex:1;min-height:40px;max-height:120px;resize:none;padding:8px 12px;"
+          placeholder="Ask about a topic, paste a question, discuss a mistake…"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}"></textarea>
+        <button class="btn btn-primary" onclick="sendChat()" id="chatSendBtn" style="align-self:flex-end;">Send</button>
+      </div>
     </div>
   </div>
 
-  <!-- Count + Start -->
-  <div class="card fade-up s3 mb-4" id="countSection">
-    <div class="section-label mb-3">Number of Questions</div>
-    <div class="chip-row" id="countChips"></div>
+  <!-- ═══════════════ NOTES TAB ════════════════════════════════════ -->
+  <div id="panel-notes" class="hidden">
+    <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <!-- Topic tree -->
+      <div id="notesNav" style="min-width:200px;flex-shrink:0;"></div>
+      <!-- Notes content -->
+      <div id="notesContent" style="flex:1;min-width:280px;"></div>
+    </div>
   </div>
 
-  <div class="fade-up s4">
-    <div id="errorMsg" class="hidden" style="color:var(--red); font-size:.875rem; margin-bottom:12px;"></div>
-    <button class="btn btn-primary btn-lg" id="startBtn" onclick="startQuiz()">Start Quiz →</button>
-  </div>
 </div>
+
+<style>
+  .mode-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: transform .15s, border-color .15s, background .15s;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .mode-card:hover { transform: translateY(-2px); border-color: var(--accent); background: var(--bg-card-hover); }
+  .mode-icon { font-size: 1.4rem; }
+  .mode-title { font-weight: 700; color: var(--text-bright); font-size: .9rem; }
+  .mode-desc  { font-size: .78rem; color: var(--text-dim); line-height: 1.4; }
+
+  .chat-bubble {
+    max-width: 85%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: .875rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .chat-bubble.user {
+    background: var(--accent);
+    color: #fff;
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+  .chat-bubble.ai {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+  .chat-typing {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    align-self: flex-start;
+    padding: 10px 14px;
+    border-radius: 14px;
+    border-bottom-left-radius: 4px;
+    color: var(--text-dim);
+    font-size: .875rem;
+  }
+  .notes-nav-topic {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--text);
+    font-size: .875rem;
+    transition: background .15s;
+  }
+  .notes-nav-topic:hover, .notes-nav-topic.active { background: var(--accent-glow); color: var(--accent); }
+  .notes-nav-sub {
+    padding: 5px 12px 5px 24px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: .8rem;
+    color: var(--text-dim);
+    transition: background .15s;
+  }
+  .notes-nav-sub:hover, .notes-nav-sub.active { background: var(--accent-glow); color: var(--accent); }
+  .notes-body { line-height: 1.75; }
+  .notes-body h2 { font-size: 1.15rem; font-weight: 700; color: var(--text-bright); margin: 20px 0 8px; }
+  .notes-body h3 { font-size: .97rem; font-weight: 700; color: var(--accent); margin: 16px 0 6px; }
+  .notes-body p  { margin-bottom: 10px; font-size: .9rem; }
+  .notes-body ul { padding-left: 20px; margin-bottom: 10px; font-size: .9rem; }
+  .notes-body li { margin-bottom: 4px; }
+  .notes-body .formula { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; font-family: monospace; font-size: .9rem; margin: 8px 0; display: inline-block; }
+  .notes-body .tip { background: var(--accent-glow); border-left: 3px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 8px 12px; margin: 10px 0; font-size: .875rem; }
+  .notes-empty { text-align:center; color:var(--text-dim); padding:48px 0; font-size:.9rem; }
+</style>
 
 <script src="data.js"></script>
 <script src="grading.js"></script>
 <script src="store.js"></script>
+<script src="ai.js"></script>
+<script src="notes.js"></script>
 <script>
-  const params = new URLSearchParams(location.search);
-  const subjectId = params.get('id');
-  const subject = SUBJECT_MAP[subjectId];
+  loadCustomQuestions();
 
-  if (!subject) { location.href = 'index.html'; }
+  const params    = new URLSearchParams(location.search);
+  const subjectId = params.get('id') || '';
+  const subject   = SUBJECT_MAP[subjectId];
 
-  // State
-  let selectedMode = 'practice';
-  let selectedPaper = 'all';
-  let selectedTopic = 'all';
-  let selectedDifficulty = 'all';
-  let selectedType = 'all';
-  let selectedCount = 10;
+  if (!subject) {
+    document.body.innerHTML = '<div class="container" style="padding:40px;text-align:center;"><h2>Subject not found.</h2><a href="index.html">← Back</a></div>';
+    throw new Error('Subject not found');
+  }
 
-  // Render header
+  document.title = `${subject.name} — Study Platform`;
+  document.getElementById('navTitle').textContent = `${subject.icon} ${subject.name}`;
+
+  // Subject header
+  const levelLabel = { igcse: 'IGCSE', as: 'AS Level', a2: 'A2 Level' }[subject.level] || subject.level;
+  const lvlColors  = { igcse: '#06b6d4', as: '#a855f7', a2: '#f59e0b' };
+  const lvlColor   = lvlColors[subject.level] || '#6b7280';
   document.getElementById('subjectHeader').innerHTML = `
-    <div style="display:flex; align-items:center; gap:14px; margin-bottom:8px;">
-      <div style="width:52px;height:52px;border-radius:12px;background:${subject.color}20;color:${subject.color};display:flex;align-items:center;justify-content:center;font-size:1.6rem;">${subject.icon}</div>
-      <div>
-        <h1 style="font-size:1.5rem; margin-bottom:4px;">${subject.name}</h1>
-        <div style="display:flex;gap:8px;">
-          <span class="badge ${subject.level === 'AS' ? 'badge-purple' : 'badge-cyan'}">${subject.level}</span>
-          <span class="badge badge-gray">${subject.syllabus}</span>
-        </div>
+    <div style="font-size:2.2rem;">${subject.icon}</div>
+    <div>
+      <div class="text-bright" style="font-size:1.3rem;font-weight:700;">${subject.name}</div>
+      <div style="display:flex;gap:6px;align-items:center;margin-top:4px;">
+        <span style="font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:20px;background:${lvlColor}20;color:${lvlColor};">${levelLabel}</span>
+        <span class="text-dim text-xs">${subject.syllabus}</span>
       </div>
     </div>
   `;
 
-  // Modes
+  /* ── Topic filters ──────────────────────────────────────────── */
+  const topicSel = document.getElementById('filterTopic');
+  subject.topics.forEach(t => {
+    const o = document.createElement('option'); o.value = t.name; o.textContent = t.name;
+    topicSel.appendChild(o);
+  });
+
+  function updateSubtopics() {
+    const sel = document.getElementById('filterSubtopic');
+    sel.innerHTML = '<option value="">All subtopics</option>';
+    const topicName = document.getElementById('filterTopic').value;
+    if (!topicName) return;
+    const t = subject.topics.find(t => t.name === topicName);
+    if (t) t.subtopics.forEach(sub => {
+      const o = document.createElement('option'); o.value = sub; o.textContent = sub;
+      sel.appendChild(o);
+    });
+  }
+
+  /* ── Mode grid ──────────────────────────────────────────────── */
   const MODES = [
-    { id: 'practice',  icon: '📝', name: 'Practice',  desc: 'Immediate feedback after each answer' },
-    { id: 'exam',      icon: '🎯', name: 'Exam',       desc: 'Feedback revealed at the end only' },
-    { id: 'tutor',     icon: '🧑‍🏫', name: 'Tutor',     desc: 'Step-by-step hints and guidance' },
-    { id: 'flashcard', icon: '🃏', name: 'Flashcard',  desc: 'Flip cards to reveal answers' },
-    { id: 'weakness',  icon: '🎯', name: 'Weakness',   desc: 'Focus on your worst topics' },
-    { id: 'mistakes',  icon: '🔁', name: 'Mistakes',   desc: 'Redo previously wrong questions' },
+    { id: 'all',       icon: '📋', title: 'Full Practice',  desc: 'Mix of all question types from every topic' },
+    { id: 'topic',     icon: '🎯', title: 'By Topic',       desc: 'Focus on a specific topic or subtopic' },
+    { id: 'weak',      icon: '💪', title: 'Weak Topics',    desc: 'Questions you have struggled with most' },
+    { id: 'mistakes',  icon: '🔄', title: 'Review Mistakes',desc: 'Retry questions you previously got wrong' },
+    { id: 'timed',     icon: '⏱',  title: 'Timed Quiz',    desc: '30-second limit per question — builds speed' },
+    { id: 'custom',    icon: '⭐', title: 'Custom Library', desc: 'Questions from your saved AI-generated bank' },
   ];
 
-  const modeGrid = document.getElementById('modeGrid');
+  const grid = document.getElementById('modeGrid');
   MODES.forEach(m => {
-    const el = document.createElement('div');
-    el.className = `mode-card${m.id === selectedMode ? ' active' : ''}`;
-    el.dataset.mode = m.id;
-    el.innerHTML = `<div class="mode-icon">${m.icon}</div><div class="mode-name">${m.name}</div><div class="mode-desc">${m.desc}</div>`;
-    el.onclick = () => {
-      selectedMode = m.id;
-      document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
-      // Hide count for flashcard
-      document.getElementById('countSection').style.display =
-        m.id === 'flashcard' ? 'none' : '';
-    };
-    modeGrid.appendChild(el);
+    const card = document.createElement('div');
+    card.className = 'mode-card fade-up';
+    card.innerHTML = `<div class="mode-icon">${m.icon}</div><div class="mode-title">${m.title}</div><div class="mode-desc">${m.desc}</div>`;
+    card.onclick = () => startSession(m.id);
+    grid.appendChild(card);
   });
 
-  // Filter helpers
-  function makeChips(container, items, getCurrent, setter) {
-    const el = document.getElementById(container);
-    const allChip = document.createElement('button');
-    allChip.className = 'chip' + (getCurrent() === 'all' ? ' active' : '');
-    allChip.textContent = 'All';
-    allChip.onclick = () => { setter('all'); refreshChips(container, items, getCurrent, setter); };
-    el.appendChild(allChip);
-
-    items.forEach(item => {
-      const chip = document.createElement('button');
-      chip.className = 'chip' + (getCurrent() === item ? ' active' : '');
-      chip.textContent = item;
-      chip.onclick = () => { setter(item); refreshChips(container, items, getCurrent, setter); };
-      el.appendChild(chip);
+  /* Topic-by-topic practice */
+  function renderTopicPractice() {
+    const container = document.getElementById('topicPractice');
+    container.innerHTML = `<div class="section-label mb-3">Practice by Topic</div>`;
+    subject.topics.forEach(t => {
+      const sec = document.createElement('div');
+      sec.style.cssText = 'margin-bottom:16px;';
+      sec.innerHTML = `<div class="text-bright" style="font-weight:700;margin-bottom:8px;font-size:.9rem;">${t.name}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${t.subtopics.map(sub => `
+            <button class="btn btn-ghost btn-sm" onclick="startTopicSession('${t.name}','${sub}')">
+              ${sub}
+            </button>`).join('')}
+        </div>`;
+      container.appendChild(sec);
     });
   }
+  renderTopicPractice();
 
-  function refreshChips(container, items, getCurrent, setter) {
-    const el = document.getElementById(container);
-    el.innerHTML = '';
-    makeChips(container, items, getCurrent, setter);
-  }
-
-  const papers = getPapersForSubject(subjectId);
-  const topics = getTopicsForSubject(subjectId);
-  const difficulties = ['easy', 'medium', 'hard'];
-  const types = ['mcq', 'short-answer', 'calculation', 'essay'];
-
-  makeChips('paperChips',      papers,       () => selectedPaper,     v => selectedPaper = v);
-  makeChips('topicChips',      topics,       () => selectedTopic,     v => selectedTopic = v);
-  makeChips('difficultyChips', difficulties, () => selectedDifficulty, v => selectedDifficulty = v);
-  makeChips('typeChips',       types,        () => selectedType,       v => selectedType = v);
-
-  // Count chips
-  const countChipsEl = document.getElementById('countChips');
-  [5, 10, 15, 20].forEach(n => {
-    const chip = document.createElement('button');
-    chip.className = 'chip' + (n === selectedCount ? ' active' : '');
-    chip.textContent = n;
-    chip.onclick = () => {
-      selectedCount = n;
-      document.querySelectorAll('#countChips .chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-    };
-    countChipsEl.appendChild(chip);
-  });
-
-  function startQuiz() {
+  function startSession(mode) {
     const filters = {
-      paper: selectedPaper,
-      topic: selectedTopic,
-      difficulty: selectedDifficulty,
-      questionType: selectedType,
+      topic:    document.getElementById('filterTopic').value || undefined,
+      subtopic: document.getElementById('filterSubtopic').value || undefined,
+      difficulty: document.getElementById('filterDiff').value || undefined,
+      type:     document.getElementById('filterType').value || undefined,
     };
-    const result = createSession({
-      subject: subjectId,
-      mode: selectedMode,
-      filters,
-      count: selectedCount,
+    const countVal = document.getElementById('filterCount').value;
+    const count    = countVal === 'all' ? 9999 : parseInt(countVal, 10);
+    const session  = createSession({ subject: subjectId, mode, filters, count });
+    location.href  = `quiz.html?session=${session.id}`;
+  }
+
+  function startTopicSession(topic, subtopic) {
+    const session = createSession({ subject: subjectId, mode: 'topic', filters: { topic, subtopic }, count: 10 });
+    location.href = `quiz.html?session=${session.id}`;
+  }
+
+  /* ── Mode tab switch ─────────────────────────────────────────── */
+  function switchMode(name) {
+    ['study','ai','notes'].forEach(t => {
+      document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+      document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== name);
+    });
+    if (name === 'notes') renderNotesNav();
+    if (name === 'ai') initChat();
+  }
+
+  /* ═══════════════ AI CHAT ════════════════════════════════════════ */
+  let chatHistory = [];
+  let attachedFileText = '';
+  let chatInited = false;
+
+  function initChat() {
+    if (chatInited) return;
+    chatInited = true;
+    // Greet once AI is ready
+    if (webllmReady()) {
+      appendAIBubble(`I'm your AI tutor for ${subject.name}. Ask me anything about the syllabus, past questions, or topics you find difficult!`);
+    } else {
+      const div = document.createElement('div');
+      div.className = 'chat-typing';
+      div.id = 'chatLoadingMsg';
+      div.textContent = 'Loading AI model… this may take a few minutes on first load.';
+      document.getElementById('chatHistory').appendChild(div);
+      document.addEventListener('webllm-ready', () => {
+        document.getElementById('chatLoadingMsg')?.remove();
+        appendAIBubble(`I'm your AI tutor for ${subject.name}. Ask me anything!`);
+      }, { once: true });
+    }
+  }
+
+  async function sendChat() {
+    const input = document.getElementById('chatInput');
+    const text  = input.value.trim();
+    if (!text && !attachedFileText) return;
+
+    const fullText = attachedFileText
+      ? `${text}\n\n[Attached file content:]\n${attachedFileText}` : text;
+
+    input.value = '';
+    clearFile();
+    appendUserBubble(text || '(File attached)');
+
+    chatHistory.push({ role: 'user', content: fullText });
+    document.getElementById('chatWelcome')?.remove();
+
+    const typing = document.createElement('div');
+    typing.className = 'chat-typing';
+    typing.textContent = 'Thinking…';
+    document.getElementById('chatHistory').appendChild(typing);
+    scrollChat();
+
+    document.getElementById('chatSendBtn').disabled = true;
+    try {
+      const reply = await chatWithAI(chatHistory, subjectId);
+      typing.remove();
+      appendAIBubble(reply);
+      chatHistory.push({ role: 'assistant', content: reply });
+    } catch(e) {
+      typing.remove();
+      appendAIBubble(`Sorry, I couldn't respond: ${e.message}`);
+    } finally {
+      document.getElementById('chatSendBtn').disabled = false;
+      input.focus();
+    }
+  }
+
+  function appendUserBubble(text) {
+    const div = document.createElement('div');
+    div.className = 'chat-bubble user';
+    div.textContent = text;
+    document.getElementById('chatHistory').appendChild(div);
+    scrollChat();
+  }
+
+  function appendAIBubble(text) {
+    const div = document.createElement('div');
+    div.className = 'chat-bubble ai';
+    div.textContent = text;
+    document.getElementById('chatHistory').appendChild(div);
+    scrollChat();
+  }
+
+  function scrollChat() {
+    const h = document.getElementById('chatHistory');
+    h.scrollTop = h.scrollHeight;
+  }
+
+  /* File attach */
+  async function handleFileAttach(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    const preview = document.getElementById('filePreview');
+    const previewText = document.getElementById('filePreviewText');
+    previewText.textContent = `📎 ${file.name} (reading…)`;
+    preview.classList.remove('hidden');
+
+    if (file.type === 'application/pdf') {
+      try {
+        if (typeof pdfjsLib === 'undefined') throw new Error('PDF.js not loaded');
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const buffer = await file.arrayBuffer();
+        const pdf    = await pdfjsLib.getDocument({ data: buffer }).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page    = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += content.items.map(it => it.str).join(' ') + '\n';
+        }
+        attachedFileText = text.trim();
+        previewText.textContent = `📎 ${file.name} (${pdf.numPages} pages ready)`;
+      } catch(e) {
+        previewText.textContent = `📎 ${file.name} — PDF read failed: ${e.message}`;
+      }
+    } else if (file.type.startsWith('image/')) {
+      previewText.textContent = `📎 ${file.name} — image attached (note: local AI cannot view images, text description will help)`;
+      attachedFileText = `[Image file: ${file.name}]`;
+    } else {
+      const text = await file.text();
+      attachedFileText = text;
+      previewText.textContent = `📎 ${file.name} (${text.length} chars ready)`;
+    }
+    input.value = '';
+  }
+
+  function clearFile() {
+    attachedFileText = '';
+    document.getElementById('filePreview').classList.add('hidden');
+    document.getElementById('filePreviewText').textContent = '';
+  }
+
+  /* ═══════════════ NOTES ══════════════════════════════════════════ */
+  let notesNavInited = false;
+  let currentTopic   = null;
+  let currentSub     = null;
+
+  function renderNotesNav() {
+    if (notesNavInited) return;
+    notesNavInited = true;
+    const nav = document.getElementById('notesNav');
+    nav.innerHTML = '<div class="section-label mb-2">Topics</div>';
+
+    subject.topics.forEach(t => {
+      const topicEl = document.createElement('div');
+      topicEl.className = 'notes-nav-topic';
+      topicEl.textContent = t.name;
+      topicEl.onclick = () => {
+        nav.querySelectorAll('.notes-nav-topic,.notes-nav-sub').forEach(e => e.classList.remove('active'));
+        topicEl.classList.add('active');
+        renderNotes(t.name, null);
+      };
+      nav.appendChild(topicEl);
+
+      t.subtopics.forEach(sub => {
+        const subEl = document.createElement('div');
+        subEl.className = 'notes-nav-sub';
+        subEl.textContent = sub;
+        subEl.onclick = e => {
+          e.stopPropagation();
+          nav.querySelectorAll('.notes-nav-topic,.notes-nav-sub').forEach(e => e.classList.remove('active'));
+          subEl.classList.add('active');
+          renderNotes(t.name, sub);
+        };
+        nav.appendChild(subEl);
+      });
     });
 
-    if (result.error) {
-      const errEl = document.getElementById('errorMsg');
-      errEl.textContent = result.error;
-      errEl.classList.remove('hidden');
+    // Default: first topic
+    if (subject.topics.length) {
+      nav.querySelector('.notes-nav-topic')?.click();
+    }
+  }
+
+  function renderNotes(topicName, subtopicName) {
+    const content = document.getElementById('notesContent');
+    const key = subtopicName || topicName;
+
+    // Look in NOTES global (notes.js)
+    const subjectNotes = (typeof NOTES !== 'undefined') ? (NOTES[subjectId] || {}) : {};
+    const noteData     = subjectNotes[key] || subjectNotes[topicName];
+
+    if (!noteData) {
+      content.innerHTML = `<div class="card">
+        <div class="notes-empty">
+          <div style="font-size:1.8rem;margin-bottom:8px;">📝</div>
+          <div style="font-weight:600;color:var(--text);margin-bottom:4px;">${key}</div>
+          <div>No pre-written notes yet for this topic.</div>
+          <div style="margin-top:12px;font-size:.82rem;">Try the AI Chat tab — ask the AI to explain this topic!</div>
+        </div>
+      </div>`;
       return;
     }
 
-    location.href = `quiz.html?session=${result.id}`;
+    content.innerHTML = `<div class="card"><div class="notes-body">${noteData}</div></div>`;
   }
 </script>
+
+<!-- PDF.js for file attach -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </body>
 </html>

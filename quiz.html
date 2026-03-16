@@ -296,6 +296,8 @@
       }
     }
 
+    currentUserAnswer = userAnswer; // captured for AI discuss
+
     const result = submitAnswer({
       sessionId: session.id,
       questionId: q.id,
@@ -394,7 +396,30 @@
         ${missingHtml}
         ${markSchemeHtml}
       </div>
+      <!-- AI Discussion Panel -->
+      <div id="discussPanel" style="margin-top:14px;">
+        <button class="btn btn-ghost btn-sm" onclick="toggleDiscuss()" id="discussToggleBtn">
+          🤖 Discuss with AI
+        </button>
+        <div id="discussBody" class="hidden" style="margin-top:10px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;">
+          <div id="discussHistory" style="padding:12px;max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;">
+            <!-- Messages appear here -->
+          </div>
+          <div style="padding:10px;border-top:1px solid var(--border);display:flex;gap:8px;">
+            <input type="text" id="discussInput" class="input" style="flex:1;" placeholder="Ask about this question…"
+              onkeydown="if(event.key==='Enter')sendDiscuss()">
+            <button class="btn btn-primary btn-sm" onclick="sendDiscuss()">Ask</button>
+          </div>
+        </div>
+      </div>
     `;
+
+    // Seed discuss context
+    window.__discussContext = {
+      question: q,
+      userAnswer: (typeof currentUserAnswer !== 'undefined') ? currentUserAnswer : '',
+      gradeResult: gr,
+    };
   }
 
   function showInlineError(msg) {
@@ -466,6 +491,101 @@
     }
     if (feedbackShown && e.key === 'Enter' && session.mode !== 'flashcard') handleNext();
   });
+
+  // Store answer for discuss context
+  let currentUserAnswer = '';
+  const _origSubmit = handleSubmit;
+  // patch to capture answer
+  const __origHandleSubmit = handleSubmit;
+
+  // ── AI Discuss panel ──────────────────────────────────────────
+  let discussHistory = [];
+  let discussInited  = false;
+
+  function toggleDiscuss() {
+    const body = document.getElementById('discussBody');
+    const btn  = document.getElementById('discussToggleBtn');
+    const open = body.classList.toggle('hidden');
+    btn.textContent = open ? '🤖 Discuss with AI' : '▲ Close AI Discussion';
+    if (!open && !discussInited) initDiscuss();
+  }
+
+  function initDiscuss() {
+    discussInited = true;
+    const ctx = window.__discussContext || {};
+    const q   = ctx.question || currentQuestion;
+    const gr  = ctx.gradeResult || lastGradeResult;
+
+    const score = gr ? `${gr.score}/${gr.maxScore}` : '?';
+    const seed  = `I just answered this question and got ${score} marks. Can you help me understand it better?`;
+
+    const q_text   = q?.prompt       || '';
+    const scheme   = (q?.markScheme  || []).join('; ');
+    const myAnswer = ctx.userAnswer   || '';
+    const feedback = gr?.feedback     || '';
+
+    discussHistory = [];
+    appendDiscussBubble('ai', `You scored ${score}. ${feedback || 'Let\'s go through this together.'}\n\nWhat would you like to understand better?`);
+    document.getElementById('discussInput').focus();
+
+    window.__discussSysCtx = [
+      `You are a Cambridge exam tutor helping a student review their answer.`,
+      `Question: ${q_text}`,
+      scheme  ? `Mark scheme: ${scheme}` : '',
+      myAnswer ? `Student's answer: ${myAnswer}` : '',
+      feedback ? `Grading feedback: ${feedback}` : '',
+    ].filter(Boolean).join('\n\n');
+  }
+
+  async function sendDiscuss() {
+    const input = document.getElementById('discussInput');
+    const text  = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    input.disabled = true;
+
+    appendDiscussBubble('user', text);
+    discussHistory.push({ role: 'user', content: text });
+
+    const typing = document.createElement('div');
+    typing.style.cssText = 'padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;border-bottom-left-radius:2px;font-size:.82rem;color:var(--text-dim);align-self:flex-start;';
+    typing.textContent = 'Thinking…';
+    document.getElementById('discussHistory').appendChild(typing);
+    scrollDiscuss();
+
+    try {
+      const sysCtx = window.__discussSysCtx || '';
+      const messages = [
+        { role: 'system', content: sysCtx },
+        ...discussHistory,
+      ];
+      const reply = await callAI(messages);
+      typing.remove();
+      appendDiscussBubble('ai', reply);
+      discussHistory.push({ role: 'assistant', content: reply });
+    } catch(e) {
+      typing.remove();
+      appendDiscussBubble('ai', `Sorry, couldn't respond: ${e.message}`);
+    } finally {
+      input.disabled = false;
+      input.focus();
+    }
+  }
+
+  function appendDiscussBubble(role, text) {
+    const div = document.createElement('div');
+    div.style.cssText = role === 'user'
+      ? 'padding:8px 12px;background:var(--accent);color:#fff;border-radius:10px;border-bottom-right-radius:2px;font-size:.82rem;align-self:flex-end;max-width:88%;white-space:pre-wrap;'
+      : 'padding:8px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;border-bottom-left-radius:2px;font-size:.82rem;color:var(--text);align-self:flex-start;max-width:88%;white-space:pre-wrap;';
+    div.textContent = text;
+    document.getElementById('discussHistory').appendChild(div);
+    scrollDiscuss();
+  }
+
+  function scrollDiscuss() {
+    const h = document.getElementById('discussHistory');
+    if (h) h.scrollTop = h.scrollHeight;
+  }
 
   // ── Init ──────────────────────────────────────────────────────
   renderQuestion();

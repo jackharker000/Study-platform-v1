@@ -1,339 +1,221 @@
-/* ── Provider config ───────────────────────────────────────────── */
+/* ── WebLLM — fully in-browser AI, no API key ──────────────────── */
+/* DeepSeek R1 Distill Llama 8B via WebGPU (MLC)                   */
 
-const PROVIDERS = {
-  webllm: {
-    name: 'In-Browser (WebLLM)',
-    url: null,
-    defaultModel: 'DeepSeek-R1-Distill-Llama-8B-q4f32_1-MLC',
-    needsKey: false,
-    note: 'Runs fully in your browser using WebGPU — no API key or internet needed after first load. Requires Chrome/Edge 113+ with a GPU.',
-  },
-  openrouter: {
-    name: 'OpenRouter (Cloud)',
-    url: 'https://openrouter.ai/api/v1/chat/completions',
-    defaultModel: 'deepseek/deepseek-r1-distill-qwen-32b',
-    needsKey: true,
-    note: 'Free tier at openrouter.ai — DeepSeek R1 Distill Qwen 32B in the cloud',
-  },
-  deepseek: {
-    name: 'DeepSeek API',
-    url: 'https://api.deepseek.com/v1/chat/completions',
-    defaultModel: 'deepseek-reasoner',
-    needsKey: true,
-    note: 'DeepSeek R1 via platform.deepseek.com',
-  },
-  ollama: {
-    name: 'Ollama (Local Server)',
-    url: 'http://localhost:11434/v1/chat/completions',
-    defaultModel: 'deepseek-r1:8b',
-    needsKey: false,
-    note: 'Run DeepSeek locally via Ollama — start with OLLAMA_ORIGINS=* ollama run deepseek-r1:8b',
-  },
-};
+const WEBLLM_MODEL = 'DeepSeek-R1-Distill-Llama-8B-q4f32_1-MLC';
+const WEBLLM_CDN   = 'https://esm.run/@mlc-ai/web-llm';
 
-/* ── WebLLM in-browser engine ─────────────────────────────────── */
+/* Engine state --------------------------------------------------- */
+let __engine   = null;
+let __loading  = false;
+let __progress = 0;
+let __status   = 'idle'; // idle | loading | ready | error | no-gpu
 
+function webllmReady()    { return __status === 'ready'; }
+function webllmLoading()  { return __status === 'loading'; }
+function webllmStatus()   { return __status; }
+function webllmProgress() { return __progress; }
+function getWebLLMEngine(){ return __engine; }
+function setWebLLMEngine(e){ __engine = e; }
+
+/* ── Broadcast status to data-ai-* elements ─────────────────────── */
+function _broadcast(text, pct) {
+  document.querySelectorAll('[data-ai-status]').forEach(el => { el.textContent = text; });
+  document.querySelectorAll('[data-ai-progress]').forEach(el => { el.style.width = pct + '%'; });
+  document.querySelectorAll('[data-ai-pct]').forEach(el => { el.textContent = pct + '%'; });
+  if (__status === 'ready') {
+    document.querySelectorAll('[data-ai-hide-when-ready]').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[data-ai-show-when-ready]').forEach(el => el.classList.remove('hidden'));
+  }
+}
+
+/* ── Auto-load on DOM ready ──────────────────────────────────────── */
+async function _startLoading() {
+  if (__loading || __engine) return;
+  if (!navigator.gpu) {
+    __status = 'no-gpu';
+    _broadcast('AI unavailable — needs Chrome/Edge 113+ with GPU', 0);
+    document.dispatchEvent(new CustomEvent('webllm-status', { detail: { status: 'no-gpu' } }));
+    return;
+  }
+  __loading = true;
+  __status  = 'loading';
+  _broadcast('Loading AI model…', 0);
+  try {
+    const { CreateMLCEngine } = await import(WEBLLM_CDN);
+    __engine = await CreateMLCEngine(WEBLLM_MODEL, {
+      initProgressCallback(p) {
+        __progress = p.progress || 0;
+        const pct  = Math.round(__progress * 100);
+        _broadcast(p.text ? `AI: ${p.text}` : `Loading AI… ${pct}%`, pct);
+        document.dispatchEvent(new CustomEvent('webllm-progress', { detail: { progress: __progress, text: p.text } }));
+      },
+    });
+    __status   = 'ready';
+    __progress = 1;
+    __loading  = false;
+    _broadcast('AI ready', 100);
+    document.dispatchEvent(new CustomEvent('webllm-ready'));
+  } catch(e) {
+    __status  = 'error';
+    __loading = false;
+    _broadcast('AI failed to load', 0);
+    console.error('[WebLLM]', e);
+    document.dispatchEvent(new CustomEvent('webllm-status', { detail: { status: 'error', message: e.message } }));
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _startLoading);
+} else {
+  _startLoading();
+}
+
+/* ── Wait for engine (used by callAI) ───────────────────────────── */
+function waitForEngine(timeoutMs = 600000) {
+  if (__engine) return Promise.resolve(__engine);
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('AI model timed out.')), timeoutMs);
+    document.addEventListener('webllm-ready', () => { clearTimeout(t); resolve(__engine); }, { once: true });
+    document.addEventListener('webllm-status', e => {
+      if (e.detail.status === 'error' || e.detail.status === 'no-gpu') {
+        clearTimeout(t);
+        reject(new Error(e.detail.message || 'AI not available.'));
+      }
+    }, { once: true });
+  });
+}
+
+/* ── Core callAI ─────────────────────────────────────────────────── */
+async function callAI(messages) {
+  const engine = __engine || await waitForEngine();
+  const reply  = await engine.chat.completions.create({
+    messages,
+    temperature: 0.35,
+    max_tokens: 4096,
+  });
+  return reply.choices?.[0]?.message?.content || '';
+}
+
+function hasApiKey() { return webllmReady(); }
+
+/* ── JSON parsing — strips <think> + fences ─────────────────────── */
+function parseJson(raw) {
+  let s = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) s = fence[1].trim();
+  const start = s.indexOf('{'), end = s.lastIndexOf('}');
+  if (start !== -1 && end !== -1) s = s.slice(start, end + 1);
+  return JSON.parse(s);
+}
+
+/* ── AI grading ──────────────────────────────────────────────────── */
+async function gradeWithAI(question, userAnswer) {
+  const scheme = (question.markScheme || []).join('\n');
+  const messages = [
+    { role: 'system', content: `You are a Cambridge exam marker. Grade strictly against the mark scheme.
+Respond ONLY with JSON: {"score":<int>,"maxScore":<int>,"feedback":"<text>","strengths":["..."],"missingPoints":["..."]}` },
+    { role: 'user', content: `Question (${question.marks} marks): ${question.prompt}\n\nMark scheme:\n${scheme}\n\nStudent answer:\n${userAnswer}` },
+  ];
+  const raw    = await callAI(messages);
+  const result = parseJson(raw);
+  return {
+    score:         Math.min(result.score ?? 0, question.marks),
+    maxScore:      question.marks,
+    percentage:    Math.round(((result.score ?? 0) / question.marks) * 100),
+    feedback:      result.feedback      || 'No feedback provided.',
+    strengths:     result.strengths     || [],
+    missingPoints: result.missingPoints || [],
+    gradedByAI:    true,
+  };
+}
+
+/* ── Question generation ─────────────────────────────────────────── */
+async function generateQuestions({ subject, topic, difficulty, questionType, count }) {
+  const subjectName = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[subject]?.name) || subject;
+  const mcqExtra  = questionType === 'mcq'         ? '"options":["A","B","C","D"],"correctAnswer":<0-3>,' : '';
+  const calcExtra = questionType === 'calculation'  ? '"correctAnswer":"<value with units>",' : '';
+  const messages = [
+    { role: 'system', content: `You are an expert Cambridge exam question writer.
+Generate exactly ${count} ${difficulty} ${questionType} question(s) for ${subjectName} on "${topic}".
+Respond ONLY with a JSON array. Each element: {"prompt":"...","questionType":"${questionType}","difficulty":"${difficulty}","marks":<int>,"topic":"${topic}","subject":"${subject}",${mcqExtra}${calcExtra}"markScheme":["..."],"explanation":"...","tags":["..."]}` },
+    { role: 'user', content: `Generate ${count} ${difficulty} ${questionType} question(s) about "${topic}" for ${subjectName}.` },
+  ];
+  const raw = await callAI(messages);
+  let parsed;
+  try {
+    let s = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fence) s = fence[1].trim();
+    const a = s.indexOf('['), b = s.lastIndexOf(']');
+    parsed = JSON.parse(a !== -1 && b !== -1 ? s.slice(a, b + 1) : s);
+  } catch(e) {
+    throw new Error('AI returned invalid JSON. Try again.');
+  }
+  return parsed.map((q, i) => ({
+    id: `ai_${Date.now()}_${i}`, subject, topic: q.topic || topic, subtopic: q.topic || topic,
+    questionType: q.questionType || questionType, difficulty: q.difficulty || difficulty,
+    marks: q.marks || 3, prompt: q.prompt, options: q.options, correctAnswer: q.correctAnswer,
+    markScheme: q.markScheme || [], explanation: q.explanation || '',
+    tags: [...(q.tags || []), 'ai-generated'],
+  }));
+}
+
+/* ── Past paper import ───────────────────────────────────────────── */
+async function importFromPastPaper({ subject, paperText, markSchemeText }) {
+  const subjectName = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[subject]?.name) || subject;
+  const messages = [
+    { role: 'system', content: `You are an expert at parsing Cambridge exam papers.
+Extract all questions from the paper and match with the mark scheme.
+Respond ONLY with a JSON array. Each: {"prompt":"...","questionType":"mcq"|"short-answer"|"calculation"|"essay","difficulty":"easy"|"medium"|"hard","marks":<int>,"topic":"<topic>","markScheme":["..."],"explanation":"...","tags":["past-paper"]}` },
+    { role: 'user', content: `Subject: ${subjectName}\n\nQUESTION PAPER:\n${paperText}\n\n${markSchemeText ? `MARK SCHEME:\n${markSchemeText}` : '(No mark scheme)'}` },
+  ];
+  const raw = await callAI(messages);
+  let parsed;
+  try {
+    let s = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fence) s = fence[1].trim();
+    const a = s.indexOf('['), b = s.lastIndexOf(']');
+    parsed = JSON.parse(a !== -1 && b !== -1 ? s.slice(a, b + 1) : s);
+  } catch(e) {
+    throw new Error('AI returned invalid JSON. Try again or check the paper text.');
+  }
+  return parsed.map((q, i) => ({
+    id: `pp_${Date.now()}_${i}`, subject, topic: q.topic || 'Past Paper', subtopic: q.topic || 'Past Paper',
+    questionType: q.questionType || 'short-answer', difficulty: q.difficulty || 'medium',
+    marks: q.marks || 3, prompt: q.prompt, markScheme: q.markScheme || [],
+    explanation: q.explanation || '', tags: [...(q.tags || []), 'past-paper'],
+  }));
+}
+
+/* ── AI chat with subject context ────────────────────────────────── */
+async function chatWithAI(conversationHistory, subjectId, extraContext) {
+  const syllabusCtx = (subjectId && typeof getSubjectSyllabusContext === 'function')
+    ? getSubjectSyllabusContext(subjectId) : '';
+  const systemContent = [
+    'You are a knowledgeable and supportive Cambridge exam tutor.',
+    'Help students understand topics, work through mistakes, and prepare for exams.',
+    'Be clear, concise, and encouraging. Use examples and step-by-step explanations.',
+    syllabusCtx ? `\n\nSubject context:\n${syllabusCtx}` : '',
+    extraContext  ? `\n\nExtra context:\n${extraContext}` : '',
+  ].filter(Boolean).join('\n');
+  return callAI([{ role: 'system', content: systemContent }, ...conversationHistory]);
+}
+
+/* ── Kept for compatibility with generate.html ───────────────────── */
 const WEBLLM_MODELS = [
   { id: 'DeepSeek-R1-Distill-Llama-8B-q4f32_1-MLC',  label: 'DeepSeek R1 Distill Llama 8B  (~5 GB)' },
   { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',   label: 'DeepSeek R1 Distill Qwen 7B   (~4 GB)' },
-  { id: 'DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC', label: 'DeepSeek R1 Distill Qwen 1.5B (~1 GB) — fastest' },
+  { id: 'DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC', label: 'DeepSeek R1 Distill Qwen 1.5B (~1 GB)' },
 ];
-
-// Loaded engine lives on window so any page can use it after load
-function getWebLLMEngine()  { return window.__webllmEngine || null; }
-function setWebLLMEngine(e) { window.__webllmEngine = e; }
-function webllmReady()      { return !!window.__webllmEngine; }
-
-async function loadWebLLMModel(modelId, onProgress) {
-  if (!navigator.gpu) {
-    throw new Error('WebGPU is not supported in this browser. Use Chrome 113+ or Edge 113+.');
-  }
-  // Dynamically import WebLLM from CDN
-  const { CreateMLCEngine } = await import('https://esm.run/@mlc-ai/web-llm');
-  const engine = await CreateMLCEngine(modelId, {
-    initProgressCallback: (p) => {
-      if (typeof onProgress === 'function') onProgress(p);
-    },
-  });
-  setWebLLMEngine(engine);
-  return engine;
+function loadWebLLMModel(modelId, onProgress) {
+  // Redirect to the auto-loader; if a different model is needed, note it
+  if (modelId === WEBLLM_MODEL && __engine) return Promise.resolve(__engine);
+  return _startLoading();
 }
-
-const STORAGE_PROVIDER = 'rp-ai-provider';
-const STORAGE_KEY      = 'rp-ai-key';
-const STORAGE_MODEL    = 'rp-ai-model';
-
-function getProvider()     { return localStorage.getItem(STORAGE_PROVIDER) || 'openrouter'; }
-function setProvider(p)    { localStorage.setItem(STORAGE_PROVIDER, p); }
-function getApiKey()       { return localStorage.getItem(STORAGE_KEY) || ''; }
-function setApiKey(k)      { localStorage.setItem(STORAGE_KEY, k.trim()); }
-function getModel()        {
-  return localStorage.getItem(STORAGE_MODEL) || PROVIDERS[getProvider()]?.defaultModel || 'deepseek/deepseek-r1-distill-qwen-32b';
-}
-function setModel(m)       { localStorage.setItem(STORAGE_MODEL, m); }
-function hasApiKey() {
-  const p = getProvider();
-  if (p === 'ollama')  return true;
-  if (p === 'webllm')  return webllmReady();
-  return !!getApiKey();
-}
-
-/* ── Core API call ────────────────────────────────────────────── */
-async function callAI(messages, model) {
-  const provider = getProvider();
-
-  // ── In-browser WebLLM path ────────────────────────────────────
-  if (provider === 'webllm') {
-    const engine = getWebLLMEngine();
-    if (!engine) throw new Error('Model not loaded yet. Open ✦ AI → Settings and click "Load Model".');
-    const reply = await engine.chat.completions.create({
-      messages,
-      temperature: 0.3,
-      max_tokens: 4096,
-    });
-    const content = reply.choices?.[0]?.message?.content || '';
-    if (!content) throw new Error('Empty response from in-browser model.');
-    return content;
-  }
-
-  // ── HTTP API path (OpenAI-compatible) ─────────────────────────
-  const cfg = PROVIDERS[provider];
-  if (!cfg) throw new Error('Unknown provider: ' + provider);
-
-  const key = getApiKey();
-  if (cfg.needsKey && !key) throw new Error(`No API key set for ${cfg.name}. Add it in ✦ AI → Settings.`);
-
-  const m = model || getModel();
-
-  const headers = { 'Content-Type': 'application/json' };
-  if (cfg.needsKey && key) headers['Authorization'] = `Bearer ${key}`;
-  if (provider === 'openrouter') {
-    headers['HTTP-Referer'] = location.href;
-    headers['X-Title'] = 'Study Platform';
-  }
-
-  const body = { model: m, messages, temperature: 0.3, max_tokens: 4096 };
-
-  const res = await fetch(cfg.url, { method: 'POST', headers, body: JSON.stringify(body) });
-
-  if (!res.ok) {
-    let msg = `API error ${res.status}`;
-    try { const e = await res.json(); msg = e.error?.message || e.message || msg; } catch {}
-    throw new Error(msg);
-  }
-
-  const data = await res.json();
-  // Extract content — handle both standard and reasoning models
-  const choice = data.choices?.[0];
-  const content = choice?.message?.content || choice?.message?.reasoning_content || '';
-  if (!content) throw new Error('Empty response from model');
-  return content;
-}
-
-function parseJson(raw) {
-  // Remove <think>...</think> reasoning blocks from R1 models
-  let cleaned = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-  // Remove markdown fences
-  cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-  // Find the first [ or { and parse from there
-  const start = cleaned.search(/[[\{]/);
-  if (start > 0) cleaned = cleaned.slice(start);
-  return JSON.parse(cleaned);
-}
-
-/* ── AI Grading ───────────────────────────────────────────────── */
-async function gradeWithAI(question, userAnswer) {
-  const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[question.subject]) || {};
-
-  const system = {
-    role: 'system',
-    content: `You are a strict Cambridge exam marker for ${subjectInfo.name || question.subject} (${question.level || ''} level). Award marks only for points that clearly match the mark scheme. Be concise and specific.`,
-  };
-
-  const markSchemeText = (question.markScheme || []).join('\n') || 'No mark scheme — use subject expertise.';
-
-  const user = {
-    role: 'user',
-    content: `QUESTION: ${question.prompt}
-
-MARKS AVAILABLE: ${question.marks}
-
-MARK SCHEME:
-${markSchemeText}
-
-STUDENT'S ANSWER:
-${userAnswer}
-
-Grade this answer. Respond with ONLY a JSON object (no markdown, no explanation outside JSON):
-{"score":${question.marks > 1 ? `<integer 0-${question.marks}>` : '<0 or 1>'},"feedback":"<1-2 sentences on what was right/wrong>","strengths":["<specific point>"],"missingPoints":["<specific missing point>"]}`,
-  };
-
-  const raw = await callAI([system, user]);
-  const parsed = parseJson(raw);
-
-  const score = Math.min(question.marks, Math.max(0, Number(parsed.score) || 0));
-  const pct = question.marks > 0 ? score / question.marks : 0;
-
-  return {
-    status: pct >= 0.8 ? 'correct' : pct >= 0.4 ? 'partial' : 'incorrect',
-    correct: pct >= 0.6,
-    score,
-    maxScore: question.marks,
-    gradingType: 'ai_rubric',
-    feedback: String(parsed.feedback || ''),
-    strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
-    missingPoints: Array.isArray(parsed.missingPoints) ? parsed.missingPoints : [],
-  };
-}
-
-/* ── Question Generation ──────────────────────────────────────── */
-async function generateQuestions({ subject, topic, difficulty, questionType, count }) {
-  const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[subject]) || { name: subject, level: '', syllabus: '' };
-
-  const typeInstructions = {
-    mcq: `Multiple choice with exactly 4 options. "options":["A text","B text","C text","D text"], "correctAnswer":<0-3 integer>.`,
-    'short-answer': `Short answer (3-6 marks). "options":null, "correctAnswer":null. Include detailed markScheme array.`,
-    calculation: `Numerical problem. "options":null, "correctAnswer":"<exact numeric answer as string, e.g. 375000 or 0.050>".`,
-    essay: `Extended response (6-12 marks). "options":null, "correctAnswer":null. Include markScheme with 6+ points.`,
-  };
-
-  const messages = [
-    {
-      role: 'system',
-      content: `You are an expert ${subjectInfo.name} exam question writer for Cambridge International ${subjectInfo.level} level (syllabus ${subjectInfo.syllabus}). Write rigorous, exam-style questions matching Cambridge style exactly.`,
-    },
-    {
-      role: 'user',
-      content: `Write ${count} ${difficulty} ${questionType} exam question${count > 1 ? 's' : ''} on "${topic}" for ${subjectInfo.name}.
-
-${typeInstructions[questionType] || ''}
-
-Respond with ONLY a JSON array (no markdown), each object having EXACTLY these fields:
-[
-  {
-    "prompt": "<full question text>",
-    "questionType": "${questionType}",
-    "topic": "${topic}",
-    "difficulty": "${difficulty}",
-    "marks": <integer>,
-    "options": <see above>,
-    "correctAnswer": <see above>,
-    "explanation": "<full explanation of correct answer>",
-    "markScheme": ["<mark point with [1] at end>", ...],
-    "teachingSteps": ["<step 1>", "<step 2>", ...]
-  }
-]`,
-    },
-  ];
-
-  const raw = await callAI(messages);
-  const arr = parseJson(raw);
-  if (!Array.isArray(arr)) throw new Error('Model returned unexpected format — try again.');
-
-  return arr.map((q, i) => ({
-    id: `ai_${subject}_${Date.now()}_${i}`,
-    subject,
-    level: subjectInfo.level,
-    syllabus: subjectInfo.syllabus,
-    paper: 'AI Generated',
-    subtopic: topic,
-    syllabusRef: '',
-    difficultyScore: { easy: 1, medium: 2, hard: 3 }[difficulty] || 2,
-    skillsTested: [],
-    tags: ['ai-generated'],
-    examFrequency: 'medium',
-    aiMarkable: true,
-    commonMistakes: [],
-    ...q,
-    // Ensure marks is a number
-    marks: Number(q.marks) || 1,
-    // Ensure correctAnswer is right type for mcq
-    correctAnswer: q.questionType === 'mcq' ? Number(q.correctAnswer) : q.correctAnswer,
-  }));
-}
-
-/* ── Past Paper Import ────────────────────────────────────────── */
-async function importFromPastPaper({ subject, paperText, markSchemeText }) {
-  const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[subject]) || { name: subject, level: '', syllabus: '' };
-
-  const messages = [
-    {
-      role: 'system',
-      content: `You are an expert at extracting and structuring ${subjectInfo.name} Cambridge exam questions. Preserve original wording exactly. Match each question with its mark scheme answer.`,
-    },
-    {
-      role: 'user',
-      content: `Extract every question from this ${subjectInfo.name} past paper. Match with the mark scheme where provided.
-
-PAST PAPER:
-${paperText}
-
-${markSchemeText ? `MARK SCHEME:\n${markSchemeText}` : '(No mark scheme provided — infer answers from questions)'}
-
-Respond with ONLY a JSON array (no markdown), each object:
-[
-  {
-    "prompt": "<exact question wording including sub-parts a,b,c etc>",
-    "questionType": "mcq"|"short-answer"|"calculation"|"essay",
-    "topic": "<inferred topic name>",
-    "difficulty": "easy"|"medium"|"hard",
-    "marks": <integer from paper>,
-    "options": ["A","B","C","D"] or null,
-    "correctAnswer": <0-3 for mcq, numeric string for calculation, null otherwise>,
-    "explanation": "<explanation from mark scheme>",
-    "markScheme": ["<mark point> [1]", ...],
-    "teachingSteps": []
-  }
-]`,
-    },
-  ];
-
-  const raw = await callAI(messages);
-  const arr = parseJson(raw);
-  if (!Array.isArray(arr)) throw new Error('Model returned unexpected format — try again.');
-
-  return arr.map((q, i) => ({
-    id: `pp_${subject}_${Date.now()}_${i}`,
-    subject,
-    level: subjectInfo.level,
-    syllabus: subjectInfo.syllabus,
-    paper: 'Past Paper',
-    subtopic: q.topic || '',
-    syllabusRef: '',
-    difficultyScore: { easy: 1, medium: 2, hard: 3 }[q.difficulty] || 2,
-    skillsTested: [],
-    tags: ['past-paper'],
-    examFrequency: 'high',
-    aiMarkable: true,
-    commonMistakes: [],
-    ...q,
-    marks: Number(q.marks) || 1,
-    correctAnswer: q.questionType === 'mcq' ? Number(q.correctAnswer) : q.correctAnswer,
-  }));
-}
-
-/* ── Auto-generate mark scheme for existing question ──────────── */
-async function generateMarkScheme(question) {
-  const subjectInfo = (typeof SUBJECT_MAP !== 'undefined' && SUBJECT_MAP[question.subject]) || {};
-  const messages = [
-    {
-      role: 'system',
-      content: `You are an expert Cambridge ${subjectInfo.name || question.subject} mark scheme writer.`,
-    },
-    {
-      role: 'user',
-      content: `Write a detailed mark scheme for this question:
-
-${question.prompt}
-
-Marks: ${question.marks}
-Type: ${question.questionType}
-
-Respond with ONLY a JSON object:
-{"markScheme":["<mark point> [1]",...],"explanation":"<full model answer>","teachingSteps":["<step>",...]}`,
-    },
-  ];
-
-  const raw = await callAI(messages);
-  return parseJson(raw);
-}
+function getProvider()  { return 'webllm'; }
+function getModel()     { return WEBLLM_MODEL; }
+function getApiKey()    { return ''; }
+function setProvider()  {}
+function setModel()     {}
+function setApiKey()    {}

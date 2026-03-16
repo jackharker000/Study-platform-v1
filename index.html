@@ -9,43 +9,235 @@
 <body>
 
 <nav class="nav">
-  <div class="nav-brand">📚 <span>Study</span>Platform</div>
+  <div class="nav-brand">✦ <span>Study Platform</span></div>
   <div class="nav-spacer"></div>
-  <a href="generate.html" class="nav-link">✦ AI</a>
+  <div id="aiStatusBar" style="display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text-dim);transition:opacity .4s;">
+    <div style="width:80px;height:4px;background:var(--border);border-radius:2px;overflow:hidden;">
+      <div data-ai-progress style="height:100%;background:var(--accent);border-radius:2px;width:0%;transition:width .5s;"></div>
+    </div>
+    <span data-ai-status>Loading AI…</span>
+  </div>
+  <a href="notes.html" class="nav-link">📝 Notes</a>
+  <a href="chat.html" class="nav-link">🤖 AI</a>
+  <a href="generate.html" class="nav-link">✦ Generate</a>
   <a href="dashboard.html" class="nav-link">Dashboard</a>
 </nav>
 
-<div class="container">
-  <div class="page-header fade-up">
-    <h1>Choose a Subject</h1>
-    <p>Select a subject to start practising, revising, or testing yourself.</p>
+<div class="container-lg" style="padding-top:28px;padding-bottom:48px;">
+
+  <div style="margin-bottom:22px;">
+    <h1 class="text-bright" style="font-size:1.55rem;font-weight:700;margin-bottom:4px;">Your Subjects</h1>
+    <p class="text-dim" style="font-size:.875rem;">Choose a subject to study, review notes, or chat with AI.</p>
   </div>
 
-  <div class="subject-grid" id="subjectGrid"></div>
+  <!-- Level tabs -->
+  <div class="tabs" style="margin-bottom:20px;">
+    <button class="tab-btn active" id="tab-all"   onclick="filterLevel('all')">All</button>
+    <button class="tab-btn"        id="tab-igcse" onclick="filterLevel('igcse')">IGCSE</button>
+    <button class="tab-btn"        id="tab-as"    onclick="filterLevel('as')">AS Level</button>
+    <button class="tab-btn"        id="tab-a2"    onclick="filterLevel('a2')">A2 Level</button>
+  </div>
+
+  <!-- Subject grid -->
+  <div id="subjectGrid" class="subject-grid"></div>
+
+  <div style="margin-top:24px;text-align:center;">
+    <button class="btn btn-ghost" onclick="openManageModal()">⚙ Manage Subjects</button>
+  </div>
 </div>
 
-<script src="data.js"></script>
-<script>
-  const grid = document.getElementById('subjectGrid');
+<!-- ── Manage modal ─────────────────────────────────────────────── -->
+<div id="manageModal" class="modal-overlay hidden" onclick="if(event.target===this)closeManageModal()">
+  <div class="modal" style="max-width:660px;max-height:82vh;overflow-y:auto;">
+    <div class="modal-title" style="margin-bottom:4px;">Manage Subjects</div>
+    <p class="text-dim text-sm" style="margin-bottom:16px;">Toggle subjects visible on your home screen.</p>
+    <div class="tabs" style="margin-bottom:14px;">
+      <button class="tab-btn active" id="mtab-all"   onclick="filterManage('all')">All</button>
+      <button class="tab-btn"        id="mtab-igcse" onclick="filterManage('igcse')">IGCSE</button>
+      <button class="tab-btn"        id="mtab-as"    onclick="filterManage('as')">AS</button>
+      <button class="tab-btn"        id="mtab-a2"    onclick="filterManage('a2')">A2</button>
+    </div>
+    <div id="manageList"></div>
+    <div class="flex gap-3 justify-end" style="margin-top:18px;flex-wrap:wrap;">
+      <button class="btn btn-ghost btn-sm" onclick="selectAll()">Select All</button>
+      <button class="btn btn-ghost btn-sm" onclick="selectNone()">Clear All</button>
+      <button class="btn btn-primary"      onclick="closeManageModal()">Done</button>
+    </div>
+  </div>
+</div>
 
-  SUBJECTS.forEach((subject, i) => {
-    const count = QUESTIONS.filter(q => q.subject === subject.id).length;
-    const card = document.createElement('a');
-    card.href = `subject.html?id=${subject.id}`;
-    card.className = `card card-hover subject-card fade-up s${Math.min(i + 1, 6)}`;
-    card.innerHTML = `
-      <div class="subject-card-icon" style="background:${subject.color}20; color:${subject.color}">
-        ${subject.icon}
-      </div>
-      <div class="subject-card-name">${subject.name}</div>
-      <div class="subject-card-meta">
-        <span class="badge ${subject.level === 'AS' ? 'badge-purple' : 'badge-cyan'}">${subject.level}</span>
-        <span class="badge badge-gray">${subject.syllabus}</span>
-        <span class="subject-card-count">${count} questions</span>
-      </div>
-    `;
-    grid.appendChild(card);
+<style>
+  .subject-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(195px, 1fr));
+    gap: 14px;
+  }
+  .subject-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px 16px 14px;
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: transform .15s, box-shadow .2s, border-color .15s, background .15s;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    position: relative;
+    text-decoration: none;
+    color: inherit;
+    overflow: hidden;
+  }
+  .subject-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(0,0,0,.22);
+    border-color: var(--accent);
+    background: var(--bg-card-hover);
+  }
+  .subject-accent-bar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+  .subject-icon  { font-size: 1.7rem; line-height: 1; }
+  .subject-name  { font-weight: 700; font-size: .97rem; color: var(--text-bright); line-height: 1.3; }
+  .level-chip    { font-size: .68rem; font-weight: 700; letter-spacing: .05em; padding: 2px 7px; border-radius: 20px; display: inline-block; align-self: flex-start; }
+  .subject-meta  { font-size: .77rem; color: var(--text-dim); }
+
+  .manage-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 10px; border-radius: var(--radius);
+    cursor: pointer; transition: background .15s;
+  }
+  .manage-row:hover { background: var(--bg-card-hover); }
+  .manage-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); flex-shrink: 0; }
+</style>
+
+<script src="data.js"></script>
+<script src="store.js"></script>
+<script src="ai.js"></script>
+<script>
+  let currentLevel = 'all';
+  let manageLevel  = 'all';
+
+  const LEVEL_COLORS = { igcse: '#06b6d4', as: '#a855f7', a2: '#f59e0b' };
+  const LEVEL_LABELS = { igcse: 'IGCSE', as: 'AS', a2: 'A2' };
+
+  /* AI status bar */
+  document.addEventListener('webllm-ready', () => {
+    const bar = document.getElementById('aiStatusBar');
+    bar.innerHTML = '<span style="color:var(--green);font-size:.78rem;">✓ AI ready</span>';
+    setTimeout(() => { bar.style.opacity = '0'; }, 3000);
+    setTimeout(() => { bar.style.display = 'none'; }, 3500);
   });
+  document.addEventListener('webllm-status', e => {
+    if (e.detail.status === 'no-gpu') {
+      document.getElementById('aiStatusBar').innerHTML =
+        '<span style="color:var(--amber);font-size:.78rem;">⚠ Needs Chrome/Edge + GPU for AI</span>';
+    }
+  });
+
+  /* ── Grid render ──────────────────────────────────────────────── */
+  function renderGrid() {
+    const activeIds = getActiveSubjectIds();
+    const subjects  = ALL_SUBJECTS.filter(s =>
+      (currentLevel === 'all' || s.level === currentLevel) && activeIds.includes(s.id)
+    );
+    const grid = document.getElementById('subjectGrid');
+
+    if (!subjects.length) {
+      grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;padding:48px 0;">
+        <div class="empty-icon">📚</div>
+        <div class="empty-title">No subjects selected</div>
+        <p class="text-dim text-sm" style="margin-top:8px;">Click "Manage Subjects" to add subjects.</p>
+      </div>`;
+      return;
+    }
+
+    grid.innerHTML = '';
+    subjects.forEach((s, idx) => {
+      const qCount    = QUESTIONS.filter(q => q.subject === s.id).length;
+      const lvlColor  = LEVEL_COLORS[s.level] || '#6b7280';
+      const lvlLabel  = LEVEL_LABELS[s.level] || s.level.toUpperCase();
+
+      const card = document.createElement('a');
+      card.href  = `subject.html?id=${s.id}`;
+      card.className = `subject-card fade-up s${Math.min(idx % 6 + 1, 6)}`;
+      card.innerHTML = `
+        <div class="subject-accent-bar" style="background:${s.color};"></div>
+        <div class="subject-icon">${s.icon}</div>
+        <div class="subject-name">${s.name}</div>
+        <div class="level-chip" style="background:${lvlColor}20;color:${lvlColor};">${lvlLabel}</div>
+        <div class="subject-meta">${qCount ? `${qCount} questions` : 'AI-powered'} · ${s.syllabus}</div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function filterLevel(level) {
+    currentLevel = level;
+    ['all','igcse','as','a2'].forEach(l =>
+      document.getElementById(`tab-${l}`)?.classList.toggle('active', l === level)
+    );
+    renderGrid();
+  }
+
+  /* ── Manage modal ─────────────────────────────────────────────── */
+  function openManageModal() {
+    document.getElementById('manageModal').classList.remove('hidden');
+    renderManageList();
+  }
+  function closeManageModal() {
+    document.getElementById('manageModal').classList.add('hidden');
+    renderGrid();
+  }
+  function filterManage(level) {
+    manageLevel = level;
+    ['all','igcse','as','a2'].forEach(l =>
+      document.getElementById(`mtab-${l}`)?.classList.toggle('active', l === level)
+    );
+    renderManageList();
+  }
+  function renderManageList() {
+    const activeIds = getActiveSubjectIds();
+    const subjects  = ALL_SUBJECTS.filter(s => manageLevel === 'all' || s.level === manageLevel);
+    const list = document.getElementById('manageList');
+    list.innerHTML = '';
+    subjects.forEach(s => {
+      const isOn = activeIds.includes(s.id);
+      const lvlColor = LEVEL_COLORS[s.level] || '#6b7280';
+      const lvlLabel = LEVEL_LABELS[s.level] || s.level.toUpperCase();
+      const row = document.createElement('label');
+      row.className = 'manage-row';
+      row.innerHTML = `
+        <input type="checkbox" ${isOn ? 'checked' : ''} onchange="handleToggle('${s.id}',this.checked)">
+        <span style="font-size:1.1rem;">${s.icon}</span>
+        <span style="font-weight:600;color:var(--text-bright);flex:1;">${s.name}</span>
+        <span class="level-chip" style="background:${lvlColor}20;color:${lvlColor};">${lvlLabel}</span>
+      `;
+      list.appendChild(row);
+    });
+  }
+  function handleToggle(id, checked) {
+    const ids = getActiveSubjectIds();
+    if (checked && !ids.includes(id)) ids.push(id);
+    if (!checked) { const i = ids.indexOf(id); if (i !== -1) ids.splice(i, 1); }
+    setActiveSubjectIds(ids);
+  }
+  function selectAll() {
+    const subjects = ALL_SUBJECTS.filter(s => manageLevel === 'all' || s.level === manageLevel);
+    const ids = getActiveSubjectIds();
+    subjects.forEach(s => { if (!ids.includes(s.id)) ids.push(s.id); });
+    setActiveSubjectIds(ids); renderManageList();
+  }
+  function selectNone() {
+    const subjects = ALL_SUBJECTS.filter(s => manageLevel === 'all' || s.level === manageLevel);
+    const removals = new Set(subjects.map(s => s.id));
+    setActiveSubjectIds(getActiveSubjectIds().filter(id => !removals.has(id)));
+    renderManageList();
+  }
+
+  renderGrid();
 </script>
 </body>
 </html>
