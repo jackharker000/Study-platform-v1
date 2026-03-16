@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Study Platform</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <div class="nav-brand">📚 <span>Study</span>Platform</div>
+  <div class="nav-spacer"></div>
+  <a href="dashboard.html" class="nav-link">Dashboard</a>
+</nav>
+
+<div class="container">
+  <div class="page-header fade-up">
+    <h1>Choose a Subject</h1>
+    <p>Select a subject to start practising, revising, or testing yourself.</p>
+  </div>
+
+  <div class="subject-grid" id="subjectGrid"></div>
+</div>
+
+<script src="data.js"></script>
+<script>
+  const grid = document.getElementById('subjectGrid');
+
+  SUBJECTS.forEach((subject, i) => {
+    const count = QUESTIONS.filter(q => q.subject === subject.id).length;
+    const card = document.createElement('a');
+    card.href = `subject.html?id=${subject.id}`;
+    card.className = `card card-hover subject-card fade-up s${Math.min(i + 1, 6)}`;
+    card.innerHTML = `
+      <div class="subject-card-icon" style="background:${subject.color}20; color:${subject.color}">
+        ${subject.icon}
+      </div>
+      <div class="subject-card-name">${subject.name}</div>
+      <div class="subject-card-meta">
+        <span class="badge ${subject.level === 'AS' ? 'badge-purple' : 'badge-cyan'}">${subject.level}</span>
+        <span class="badge badge-gray">${subject.syllabus}</span>
+        <span class="subject-card-count">${count} questions</span>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+</script>
+</body>
+</html>

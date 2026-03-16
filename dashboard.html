@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Study Platform</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-back">&#8592; Subjects</a>
+  <div class="nav-brand" style="margin-left:8px;">Dashboard</div>
+  <div class="nav-spacer"></div>
+</nav>
+
+<div class="container pb-8">
+  <div id="dashContent"></div>
+</div>
+
+<script src="data.js"></script>
+<script src="grading.js"></script>
+<script src="store.js"></script>
+<script>
+  function render() {
+    const dash = computeDashboard();
+    const { overall, bySubject, weakTopics, recentAnswers, mistakeCount } = dash;
+
+    const pctClass = overall.pct >= 70 ? 'stat-green' : overall.pct >= 50 ? 'stat-amber' : (overall.total > 0 ? 'stat-red' : '');
+
+    // Subject performance
+    let subjectBarsHtml = '';
+    if (bySubject.length > 0) {
+      subjectBarsHtml = bySubject.map(s => {
+        const subject = SUBJECT_MAP[s.subjectId] || {};
+        const barColor = s.pct >= 70 ? 'var(--green)' : s.pct >= 50 ? 'var(--amber)' : 'var(--red)';
+        return `
+          <div class="bar-row">
+            <div class="bar-name">${subject.name || s.subjectId}</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${s.pct}%;background:${barColor};"></div>
+            </div>
+            <div class="bar-pct">${s.pct}%</div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      subjectBarsHtml = '<div class="text-dim text-sm">No data yet — start a quiz!</div>';
+    }
+
+    // Weak topics
+    let weakHtml = '';
+    if (weakTopics.length > 0) {
+      weakHtml = weakTopics.map(t => {
+        const barColor = t.pct >= 50 ? 'var(--amber)' : 'var(--red)';
+        return `
+          <div class="bar-row">
+            <div class="bar-name">${t.topic}</div>
+            <div class="bar-track">
+              <div class="bar-fill" style="width:${t.pct}%;background:${barColor};"></div>
+            </div>
+            <div class="bar-pct">${t.pct}%</div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      weakHtml = '<div class="text-dim text-sm">Answer more questions to see weak topics here.</div>';
+    }
+
+    // Recent activity
+    let activityHtml = '';
+    if (recentAnswers.length > 0) {
+      activityHtml = recentAnswers.slice(0, 8).map(a => {
+        const q = QUESTION_MAP[a.questionId];
+        const dotColor = a.correct === true ? 'var(--green)' : (a.score > 0 ? 'var(--amber)' : 'var(--red)');
+        const subject = SUBJECT_MAP[a.subject] || {};
+        return `
+          <div class="activity-item">
+            <div class="activity-dot" style="background:${dotColor};"></div>
+            <div class="activity-text">${q ? q.prompt.substring(0, 60) + (q.prompt.length > 60 ? '…' : '') : a.questionId}</div>
+            <div class="activity-meta">${a.score || 0}/${a.maxScore || '?'} · ${subject.icon || ''}${(a.topic || '').substring(0, 16)}</div>
+          </div>
+        `;
+      }).join('');
+    } else {
+      activityHtml = '<div class="text-dim text-sm">No recent activity.</div>';
+    }
+
+    document.getElementById('dashContent').innerHTML = `
+      <div class="page-header fade-up">
+        <h1>Your Dashboard</h1>
+        <p>Track your performance across all subjects and topics.</p>
+      </div>
+
+      <!-- Overall stats -->
+      <div class="stats-grid fade-up s1 mb-6">
+        <div class="stat-card ${pctClass}">
+          <div class="stat-label">Overall Accuracy</div>
+          <div class="stat-value">${overall.total > 0 ? overall.pct + '%' : '—'}</div>
+          <div class="stat-sub">${overall.correct} / ${overall.total} correct</div>
+        </div>
+        <div class="stat-card stat-blue">
+          <div class="stat-label">Questions Answered</div>
+          <div class="stat-value">${overall.total}</div>
+          <div class="stat-sub">across all subjects</div>
+        </div>
+        <div class="stat-card ${mistakeCount > 0 ? 'stat-red' : ''}">
+          <div class="stat-label">Active Mistakes</div>
+          <div class="stat-value">${mistakeCount}</div>
+          <div class="stat-sub">never answered correctly</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;" class="mb-6">
+        <!-- Subject performance -->
+        <div class="card fade-up s2">
+          <div class="section-label mb-4">Performance by Subject</div>
+          <div class="bar-chart">${subjectBarsHtml}</div>
+        </div>
+
+        <!-- Weak topics -->
+        <div class="card fade-up s3">
+          <div class="section-label mb-4">Weakest Topics</div>
+          <div class="bar-chart">${weakHtml}</div>
+        </div>
+      </div>
+
+      <!-- Recent activity -->
+      <div class="card fade-up s4 mb-6">
+        <div class="section-label mb-4">Recent Activity</div>
+        ${activityHtml}
+      </div>
+
+      <!-- Actions -->
+      <div class="flex gap-3 flex-wrap fade-up s5">
+        <a href="index.html" class="btn btn-primary">Start a Quiz</a>
+        <button class="btn btn-danger" onclick="confirmReset()">Reset All Data</button>
+      </div>
+    `;
+  }
+
+  function confirmReset() {
+    if (confirm('Are you sure you want to reset all your progress? This cannot be undone.')) {
+      clearAllData();
+      render();
+    }
+  }
+
+  render();
+</script>
+</body>
+</html>
