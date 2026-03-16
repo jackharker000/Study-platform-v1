@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { SUBJECTS } from '@/data/subjects'
 import { NavTabs, Card, StatCard, BarChart, SectionLabel, Button, EmptyState } from '@/components/ui'
 import type { DashboardData } from '@/types'
+import { computeDashboard, clearAllData } from '@/lib/sessionStore'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -12,10 +13,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/dashboard')
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false) })
-      .catch(() => setLoading(false))
+    setData(computeDashboard())
+    setLoading(false)
   }, [])
 
   const subjectRows = SUBJECTS.map(s => {
@@ -102,10 +101,10 @@ export default function DashboardPage() {
         <Button
           variant="danger"
           size="sm"
-          onClick={async () => {
+          onClick={() => {
             if (!confirm('This will delete all your progress. Are you sure?')) return
-            // In a real app, call a DELETE /api/progress endpoint
-            alert('Reset is not yet wired up. Add a DELETE /api/progress endpoint to implement this.')
+            clearAllData()
+            setData(computeDashboard())
           }}
         >
           Reset All Data
