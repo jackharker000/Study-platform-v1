@@ -26,18 +26,52 @@
       <div class="form-group">
         <div class="form-label">Provider</div>
         <select class="input" id="providerSelect" onchange="onProviderChange()">
-          <option value="openrouter">OpenRouter — DeepSeek R1 Distill Qwen 32B</option>
-          <option value="deepseek">DeepSeek API — R1 (deepseek-reasoner)</option>
-          <option value="ollama">Ollama — Local (no key needed)</option>
+          <option value="webllm">🖥 In-Browser — DeepSeek R1 (no API key)</option>
+          <option value="openrouter">☁ OpenRouter — DeepSeek R1 Distill Qwen 32B</option>
+          <option value="deepseek">☁ DeepSeek API — R1</option>
+          <option value="ollama">⚙ Ollama — Local Server</option>
         </select>
       </div>
-      <div class="form-group">
+      <div class="form-group" id="modelGroup">
         <div class="form-label">Model</div>
         <input type="text" class="input" id="modelInput" placeholder="model name">
       </div>
     </div>
 
-    <!-- API key row (hidden for Ollama) -->
+    <!-- WebLLM section (shown when in-browser is selected) -->
+    <div id="webllmSection" class="hidden">
+      <div class="form-group mb-3">
+        <div class="form-label mb-2">In-Browser Model</div>
+        <select class="input" id="webllmModelSelect" onchange="onWebllmModelChange()">
+          <!-- populated by JS from WEBLLM_MODELS -->
+        </select>
+        <div class="text-xs text-dim mt-1">Downloaded once and cached — no internet needed after that.</div>
+      </div>
+
+      <!-- Load button + progress -->
+      <div id="webllmLoadArea">
+        <div class="flex gap-3 items-center flex-wrap mb-2">
+          <button class="btn btn-primary" id="loadModelBtn" onclick="doLoadModel()">
+            ⬇ Download &amp; Load Model
+          </button>
+          <span id="webllmStatus" class="text-sm text-dim"></span>
+        </div>
+        <!-- Progress bar -->
+        <div id="webllmProgressWrap" class="hidden" style="margin-bottom:10px;">
+          <div style="height:6px;background:var(--bg-input);border-radius:3px;overflow:hidden;margin-bottom:6px;">
+            <div id="webllmProgressBar" style="height:100%;background:var(--accent);border-radius:3px;width:0%;transition:width .3s;"></div>
+          </div>
+          <div id="webllmProgressText" class="text-xs text-dim"></div>
+        </div>
+      </div>
+
+      <!-- WebGPU warning -->
+      <div id="webgpuWarning" class="hidden tip-box" style="background:var(--amber-bg);border-color:rgba(245,158,11,.3);color:var(--amber);margin-top:8px;">
+        ⚠ WebGPU not detected. Use Chrome 113+ or Edge 113+ with a GPU for in-browser inference.
+      </div>
+    </div>
+
+    <!-- API key row (hidden for WebLLM and Ollama) -->
     <div id="keyRow" class="flex gap-3 items-center flex-wrap" style="margin-bottom:10px;">
       <input type="password" class="input" id="apiKeyInput" style="flex:1;min-width:180px;"
         placeholder="Paste your API key here…" autocomplete="off">
@@ -206,9 +240,22 @@
 
   // ── Settings init ─────────────────────────────────────────────
   function initSettings() {
+    // Populate WebLLM model selector from ai.js WEBLLM_MODELS
+    const wSel = document.getElementById('webllmModelSelect');
+    WEBLLM_MODELS.forEach(m => {
+      const o = document.createElement('option');
+      o.value = m.id; o.textContent = m.label;
+      wSel.appendChild(o);
+    });
+
     const p = getProvider();
     document.getElementById('providerSelect').value = p;
-    document.getElementById('modelInput').value = getModel();
+    const savedModel = getModel();
+    document.getElementById('modelInput').value = savedModel;
+    // Sync webllm model select
+    if (savedModel && wSel.querySelector(`option[value="${savedModel}"]`)) {
+      wSel.value = savedModel;
+    }
     const key = getApiKey();
     if (key) document.getElementById('apiKeyInput').value = key;
     updateProviderUI(p);
@@ -217,41 +264,125 @@
   function onProviderChange() {
     const p = document.getElementById('providerSelect').value;
     setProvider(p);
-    // Reset model to default for this provider
     const defaultModel = PROVIDERS[p].defaultModel;
     document.getElementById('modelInput').value = defaultModel;
     setModel(defaultModel);
     updateProviderUI(p);
   }
 
+  function onWebllmModelChange() {
+    const m = document.getElementById('webllmModelSelect').value;
+    document.getElementById('modelInput').value = m;
+    setModel(m);
+    // Reset engine when model changes
+    setWebLLMEngine(null);
+    document.getElementById('webllmStatus').textContent = '';
+    document.getElementById('webllmProgressWrap').classList.add('hidden');
+    document.getElementById('loadModelBtn').textContent = '⬇ Download & Load Model';
+    document.getElementById('loadModelBtn').disabled = false;
+    updateGenModelLabel();
+  }
+
   function updateProviderUI(p) {
     const cfg = PROVIDERS[p];
-    const keyRow = document.getElementById('keyRow');
-    const note   = document.getElementById('providerNote');
-    const links  = document.getElementById('keyLinks');
+    const isWebLLM = p === 'webllm';
+    const needsKey = cfg.needsKey;
 
-    keyRow.style.display = cfg.needsKey ? '' : 'none';
-    note.textContent = cfg.note || '';
+    document.getElementById('webllmSection').classList.toggle('hidden', !isWebLLM);
+    document.getElementById('keyRow').style.display = needsKey ? '' : 'none';
+    document.getElementById('modelGroup').style.display = isWebLLM ? 'none' : '';
+    document.getElementById('providerNote').textContent = cfg.note || '';
+
+    // WebGPU check for in-browser mode
+    if (isWebLLM) {
+      document.getElementById('webgpuWarning').classList.toggle('hidden', !!navigator.gpu);
+      // Sync webllm model select to current saved model
+      const m = getModel();
+      const wSel = document.getElementById('webllmModelSelect');
+      if (m && wSel.querySelector(`option[value="${m}"]`)) wSel.value = m;
+      // Show ready status if engine already loaded
+      if (webllmReady()) {
+        document.getElementById('webllmStatus').innerHTML = '<span class="key-status-ok">✓ Model loaded and ready</span>';
+        document.getElementById('loadModelBtn').textContent = '↺ Reload Model';
+      }
+    }
 
     const linkMap = {
-      openrouter: '→ Get a free key at <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--accent);">openrouter.ai/keys</a> — DeepSeek R1 Distill Qwen 32B is available on the free tier.',
-      deepseek:   '→ Get an API key at <a href="https://platform.deepseek.com/" target="_blank" style="color:var(--accent);">platform.deepseek.com</a>',
-      ollama:     '→ Install Ollama, run: <code style="background:var(--bg-input);padding:2px 6px;border-radius:4px;">OLLAMA_ORIGINS=* ollama run deepseek-r1:32b</code>',
+      openrouter: '→ Free key at <a href="https://openrouter.ai/keys" target="_blank" style="color:var(--accent);">openrouter.ai/keys</a>',
+      deepseek:   '→ API key at <a href="https://platform.deepseek.com/" target="_blank" style="color:var(--accent);">platform.deepseek.com</a>',
+      ollama:     '→ <code style="background:var(--bg-input);padding:2px 6px;border-radius:4px;">OLLAMA_ORIGINS=* ollama run deepseek-r1:8b</code>',
     };
-    links.innerHTML = linkMap[p] || '';
+    document.getElementById('keyLinks').innerHTML = linkMap[p] || '';
 
-    const status = document.getElementById('keyStatus');
+    const statusEl = document.getElementById('keyStatus');
     if (p === 'ollama') {
-      status.innerHTML = '<span class="key-status-ok">✓ No key needed for local Ollama</span>';
+      statusEl.innerHTML = '<span class="key-status-ok">✓ No key needed</span>';
+    } else if (p === 'webllm') {
+      statusEl.innerHTML = webllmReady()
+        ? '<span class="key-status-ok">✓ Model ready — no API key needed</span>'
+        : '<span class="key-status-err">Model not loaded yet — click Download above</span>';
     } else {
-      status.innerHTML = getApiKey()
+      statusEl.innerHTML = getApiKey()
         ? '<span class="key-status-ok">✓ API key saved</span>'
         : '<span class="key-status-err">No API key saved yet</span>';
     }
 
-    // Update model label on generate tab
-    document.getElementById('gen-model-label').textContent =
-      `Using: ${getModel()} via ${cfg.name}`;
+    updateGenModelLabel();
+  }
+
+  function updateGenModelLabel() {
+    const p = getProvider();
+    const cfg = PROVIDERS[p];
+    const label = p === 'webllm'
+      ? `In-browser: ${getModel().replace('-q4f', ' q4').replace('-MLC','')}`
+      : `${getModel()} via ${cfg?.name || p}`;
+    const el = document.getElementById('gen-model-label');
+    if (el) el.textContent = label;
+  }
+
+  // ── WebLLM model loading ──────────────────────────────────────
+  async function doLoadModel() {
+    const modelId = document.getElementById('webllmModelSelect').value;
+    setModel(modelId);
+    document.getElementById('modelInput').value = modelId;
+
+    const btn      = document.getElementById('loadModelBtn');
+    const statusEl = document.getElementById('webllmStatus');
+    const progressWrap = document.getElementById('webllmProgressWrap');
+    const progressBar  = document.getElementById('webllmProgressBar');
+    const progressText = document.getElementById('webllmProgressText');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Loading…';
+    progressWrap.classList.remove('hidden');
+    statusEl.innerHTML = '<span style="color:var(--text-dim);">Starting download…</span>';
+
+    try {
+      await loadWebLLMModel(modelId, (p) => {
+        const pct = Math.round((p.progress || 0) * 100);
+        progressBar.style.width = pct + '%';
+        progressText.textContent = p.text || `${pct}%`;
+        statusEl.innerHTML = `<span style="color:var(--text-dim);">${pct}% — ${p.text || ''}</span>`;
+      });
+
+      // Success
+      progressBar.style.width = '100%';
+      progressBar.style.background = 'var(--green)';
+      progressText.textContent = 'Model loaded successfully';
+      statusEl.innerHTML = '<span class="key-status-ok">✓ Model loaded and ready — AI grading and generation active</span>';
+      btn.textContent = '↺ Reload Model';
+      btn.disabled = false;
+
+      document.getElementById('keyStatus').innerHTML =
+        '<span class="key-status-ok">✓ Model ready — no API key needed</span>';
+      updateGenModelLabel();
+      showToast('✓ DeepSeek R1 loaded — ready to use');
+    } catch (e) {
+      statusEl.innerHTML = `<span class="key-status-err">✗ ${e.message}</span>`;
+      btn.textContent = '↺ Retry Download';
+      btn.disabled = false;
+      progressWrap.classList.add('hidden');
+    }
   }
 
   function saveSettings() {

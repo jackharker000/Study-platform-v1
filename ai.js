@@ -1,12 +1,19 @@
 /* ── Provider config ───────────────────────────────────────────── */
 
 const PROVIDERS = {
+  webllm: {
+    name: 'In-Browser (WebLLM)',
+    url: null,
+    defaultModel: 'DeepSeek-R1-Distill-Llama-8B-q4f32_1-MLC',
+    needsKey: false,
+    note: 'Runs fully in your browser using WebGPU — no API key or internet needed after first load. Requires Chrome/Edge 113+ with a GPU.',
+  },
   openrouter: {
-    name: 'OpenRouter',
+    name: 'OpenRouter (Cloud)',
     url: 'https://openrouter.ai/api/v1/chat/completions',
     defaultModel: 'deepseek/deepseek-r1-distill-qwen-32b',
     needsKey: true,
-    note: 'Free tier at openrouter.ai — supports DeepSeek R1 Distill Qwen 32B',
+    note: 'Free tier at openrouter.ai — DeepSeek R1 Distill Qwen 32B in the cloud',
   },
   deepseek: {
     name: 'DeepSeek API',
@@ -16,13 +23,41 @@ const PROVIDERS = {
     note: 'DeepSeek R1 via platform.deepseek.com',
   },
   ollama: {
-    name: 'Ollama (Local)',
+    name: 'Ollama (Local Server)',
     url: 'http://localhost:11434/v1/chat/completions',
-    defaultModel: 'deepseek-r1:32b',
+    defaultModel: 'deepseek-r1:8b',
     needsKey: false,
-    note: 'Run DeepSeek R1 locally — start Ollama with OLLAMA_ORIGINS=* before using',
+    note: 'Run DeepSeek locally via Ollama — start with OLLAMA_ORIGINS=* ollama run deepseek-r1:8b',
   },
 };
+
+/* ── WebLLM in-browser engine ─────────────────────────────────── */
+
+const WEBLLM_MODELS = [
+  { id: 'DeepSeek-R1-Distill-Llama-8B-q4f32_1-MLC',  label: 'DeepSeek R1 Distill Llama 8B  (~5 GB)' },
+  { id: 'DeepSeek-R1-Distill-Qwen-7B-q4f16_1-MLC',   label: 'DeepSeek R1 Distill Qwen 7B   (~4 GB)' },
+  { id: 'DeepSeek-R1-Distill-Qwen-1.5B-q4f16_1-MLC', label: 'DeepSeek R1 Distill Qwen 1.5B (~1 GB) — fastest' },
+];
+
+// Loaded engine lives on window so any page can use it after load
+function getWebLLMEngine()  { return window.__webllmEngine || null; }
+function setWebLLMEngine(e) { window.__webllmEngine = e; }
+function webllmReady()      { return !!window.__webllmEngine; }
+
+async function loadWebLLMModel(modelId, onProgress) {
+  if (!navigator.gpu) {
+    throw new Error('WebGPU is not supported in this browser. Use Chrome 113+ or Edge 113+.');
+  }
+  // Dynamically import WebLLM from CDN
+  const { CreateMLCEngine } = await import('https://esm.run/@mlc-ai/web-llm');
+  const engine = await CreateMLCEngine(modelId, {
+    initProgressCallback: (p) => {
+      if (typeof onProgress === 'function') onProgress(p);
+    },
+  });
+  setWebLLMEngine(engine);
+  return engine;
+}
 
 const STORAGE_PROVIDER = 'rp-ai-provider';
 const STORAGE_KEY      = 'rp-ai-key';
@@ -36,14 +71,32 @@ function getModel()        {
   return localStorage.getItem(STORAGE_MODEL) || PROVIDERS[getProvider()]?.defaultModel || 'deepseek/deepseek-r1-distill-qwen-32b';
 }
 function setModel(m)       { localStorage.setItem(STORAGE_MODEL, m); }
-function hasApiKey()       {
+function hasApiKey() {
   const p = getProvider();
-  return p === 'ollama' || !!getApiKey();
+  if (p === 'ollama')  return true;
+  if (p === 'webllm')  return webllmReady();
+  return !!getApiKey();
 }
 
-/* ── Core API call (OpenAI-compatible format) ─────────────────── */
+/* ── Core API call ────────────────────────────────────────────── */
 async function callAI(messages, model) {
   const provider = getProvider();
+
+  // ── In-browser WebLLM path ────────────────────────────────────
+  if (provider === 'webllm') {
+    const engine = getWebLLMEngine();
+    if (!engine) throw new Error('Model not loaded yet. Open ✦ AI → Settings and click "Load Model".');
+    const reply = await engine.chat.completions.create({
+      messages,
+      temperature: 0.3,
+      max_tokens: 4096,
+    });
+    const content = reply.choices?.[0]?.message?.content || '';
+    if (!content) throw new Error('Empty response from in-browser model.');
+    return content;
+  }
+
+  // ── HTTP API path (OpenAI-compatible) ─────────────────────────
   const cfg = PROVIDERS[provider];
   if (!cfg) throw new Error('Unknown provider: ' + provider);
 
