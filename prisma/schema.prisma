@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Session {
+  id          String   @id @default(cuid())
+  subject     String?
+  mode        String   @default("practice")
+  filters     String   @default("{}")
+  questionIds String
+  currentIdx  Int      @default(0)
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  answers     Answer[]
+}
+
+model Answer {
+  id          String   @id @default(cuid())
+  sessionId   String
+  session     Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId  String
+  subject     String
+  topic       String
+  difficulty  String
+  qType       String
+  userAnswer  String
+  correct     Boolean?
+  score       Int?
+  maxScore    Int?
+  confidence  String?
+  timeMs      Int?
+  gradingType String   @default("auto")
+  aiFeedback  String?
+  createdAt   DateTime @default(now())
+}
+
+model UploadedFile {
+  id           String              @id @default(cuid())
+  originalName String
+  mimeType     String
+  size         Int
+  storagePath  String
+  status       String              @default("pending")
+  createdAt    DateTime            @default(now())
+  questions    ExtractedQuestion[]
+}
+
+model ExtractedQuestion {
+  id            String       @id @default(cuid())
+  fileId        String
+  file          UploadedFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  subject       String?
+  paper         String?
+  topic         String?
+  questionType  String?
+  marks         Int?
+  prompt        String
+  optionsJson   String?
+  correctAnswer String?
+  markScheme    String?
+  sourcePage    Int?
+  questionLabel String?
+  verified      Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+}
