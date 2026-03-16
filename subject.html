@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subject — Study Platform</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-back">&#8592; Back</a>
+  <div class="nav-spacer"></div>
+  <a href="generate.html" class="nav-link">✦ AI</a>
+  <a href="dashboard.html" class="nav-link">Dashboard</a>
+</nav>
+
+<div class="container pb-8">
+  <!-- Subject header -->
+  <div id="subjectHeader" class="page-header fade-up" style="text-align:left; padding-bottom:24px;"></div>
+
+  <!-- Mode selection -->
+  <div class="card fade-up s1 mb-4">
+    <div class="section-label mb-3">Study Mode</div>
+    <div class="mode-grid" id="modeGrid"></div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card fade-up s2 mb-4">
+    <div class="section-label mb-3">Filters</div>
+
+    <div class="mb-3">
+      <div class="text-xs text-dim mb-2">Paper</div>
+      <div class="chip-row" id="paperChips"></div>
+    </div>
+
+    <div class="mb-3">
+      <div class="text-xs text-dim mb-2">Topic</div>
+      <div class="chip-row" id="topicChips"></div>
+    </div>
+
+    <div class="mb-3">
+      <div class="text-xs text-dim mb-2">Difficulty</div>
+      <div class="chip-row" id="difficultyChips"></div>
+    </div>
+
+    <div>
+      <div class="text-xs text-dim mb-2">Question Type</div>
+      <div class="chip-row" id="typeChips"></div>
+    </div>
+  </div>
+
+  <!-- Count + Start -->
+  <div class="card fade-up s3 mb-4" id="countSection">
+    <div class="section-label mb-3">Number of Questions</div>
+    <div class="chip-row" id="countChips"></div>
+  </div>
+
+  <div class="fade-up s4">
+    <div id="errorMsg" class="hidden" style="color:var(--red); font-size:.875rem; margin-bottom:12px;"></div>
+    <button class="btn btn-primary btn-lg" id="startBtn" onclick="startQuiz()">Start Quiz →</button>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="grading.js"></script>
+<script src="store.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const subjectId = params.get('id');
+  const subject = SUBJECT_MAP[subjectId];
+
+  if (!subject) { location.href = 'index.html'; }
+
+  // State
+  let selectedMode = 'practice';
+  let selectedPaper = 'all';
+  let selectedTopic = 'all';
+  let selectedDifficulty = 'all';
+  let selectedType = 'all';
+  let selectedCount = 10;
+
+  // Render header
+  document.getElementById('subjectHeader').innerHTML = `
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:8px;">
+      <div style="width:52px;height:52px;border-radius:12px;background:${subject.color}20;color:${subject.color};display:flex;align-items:center;justify-content:center;font-size:1.6rem;">${subject.icon}</div>
+      <div>
+        <h1 style="font-size:1.5rem; margin-bottom:4px;">${subject.name}</h1>
+        <div style="display:flex;gap:8px;">
+          <span class="badge ${subject.level === 'AS' ? 'badge-purple' : 'badge-cyan'}">${subject.level}</span>
+          <span class="badge badge-gray">${subject.syllabus}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Modes
+  const MODES = [
+    { id: 'practice',  icon: '📝', name: 'Practice',  desc: 'Immediate feedback after each answer' },
+    { id: 'exam',      icon: '🎯', name: 'Exam',       desc: 'Feedback revealed at the end only' },
+    { id: 'tutor',     icon: '🧑‍🏫', name: 'Tutor',     desc: 'Step-by-step hints and guidance' },
+    { id: 'flashcard', icon: '🃏', name: 'Flashcard',  desc: 'Flip cards to reveal answers' },
+    { id: 'weakness',  icon: '🎯', name: 'Weakness',   desc: 'Focus on your worst topics' },
+    { id: 'mistakes',  icon: '🔁', name: 'Mistakes',   desc: 'Redo previously wrong questions' },
+  ];
+
+  const modeGrid = document.getElementById('modeGrid');
+  MODES.forEach(m => {
+    const el = document.createElement('div');
+    el.className = `mode-card${m.id === selectedMode ? ' active' : ''}`;
+    el.dataset.mode = m.id;
+    el.innerHTML = `<div class="mode-icon">${m.icon}</div><div class="mode-name">${m.name}</div><div class="mode-desc">${m.desc}</div>`;
+    el.onclick = () => {
+      selectedMode = m.id;
+      document.querySelectorAll('.mode-card').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+      // Hide count for flashcard
+      document.getElementById('countSection').style.display =
+        m.id === 'flashcard' ? 'none' : '';
+    };
+    modeGrid.appendChild(el);
+  });
+
+  // Filter helpers
+  function makeChips(container, items, getCurrent, setter) {
+    const el = document.getElementById(container);
+    const allChip = document.createElement('button');
+    allChip.className = 'chip' + (getCurrent() === 'all' ? ' active' : '');
+    allChip.textContent = 'All';
+    allChip.onclick = () => { setter('all'); refreshChips(container, items, getCurrent, setter); };
+    el.appendChild(allChip);
+
+    items.forEach(item => {
+      const chip = document.createElement('button');
+      chip.className = 'chip' + (getCurrent() === item ? ' active' : '');
+      chip.textContent = item;
+      chip.onclick = () => { setter(item); refreshChips(container, items, getCurrent, setter); };
+      el.appendChild(chip);
+    });
+  }
+
+  function refreshChips(container, items, getCurrent, setter) {
+    const el = document.getElementById(container);
+    el.innerHTML = '';
+    makeChips(container, items, getCurrent, setter);
+  }
+
+  const papers = getPapersForSubject(subjectId);
+  const topics = getTopicsForSubject(subjectId);
+  const difficulties = ['easy', 'medium', 'hard'];
+  const types = ['mcq', 'short-answer', 'calculation', 'essay'];
+
+  makeChips('paperChips',      papers,       () => selectedPaper,     v => selectedPaper = v);
+  makeChips('topicChips',      topics,       () => selectedTopic,     v => selectedTopic = v);
+  makeChips('difficultyChips', difficulties, () => selectedDifficulty, v => selectedDifficulty = v);
+  makeChips('typeChips',       types,        () => selectedType,       v => selectedType = v);
+
+  // Count chips
+  const countChipsEl = document.getElementById('countChips');
+  [5, 10, 15, 20].forEach(n => {
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (n === selectedCount ? ' active' : '');
+    chip.textContent = n;
+    chip.onclick = () => {
+      selectedCount = n;
+      document.querySelectorAll('#countChips .chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+    };
+    countChipsEl.appendChild(chip);
+  });
+
+  function startQuiz() {
+    const filters = {
+      paper: selectedPaper,
+      topic: selectedTopic,
+      difficulty: selectedDifficulty,
+      questionType: selectedType,
+    };
+    const result = createSession({
+      subject: subjectId,
+      mode: selectedMode,
+      filters,
+      count: selectedCount,
+    });
+
+    if (result.error) {
+      const errEl = document.getElementById('errorMsg');
+      errEl.textContent = result.error;
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    location.href = `quiz.html?session=${result.id}`;
+  }
+</script>
+</body>
+</html>

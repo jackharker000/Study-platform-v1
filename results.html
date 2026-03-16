@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Results — Study Platform</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-back">&#8592; Home</a>
+  <div class="nav-spacer"></div>
+  <a href="generate.html" class="nav-link">✦ AI</a>
+  <a href="dashboard.html" class="nav-link">Dashboard</a>
+</nav>
+
+<div class="container pb-8">
+  <div id="resultsContent"></div>
+</div>
+
+<script src="data.js"></script>
+<script src="grading.js"></script>
+<script src="store.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const sessionId = params.get('session');
+  const session = getSession(sessionId);
+
+  if (!session) { location.href = 'index.html'; }
+
+  const subject = SUBJECT_MAP[session.subject] || {};
+  const total = session.questions.length;
+  const answered = session.answers.length;
+  const correct = session.answers.filter(a => a.correct === true).length;
+  const partial = session.answers.filter(a => a.score > 0 && a.correct !== true).length;
+  const incorrect = session.answers.filter(a => a.correct === false || (a.correct === null && a.score === 0)).length;
+  const pct = answered > 0 ? Math.round((correct / answered) * 100) : 0;
+
+  const totalMarks = session.answers.reduce((s, a) => s + (a.maxScore || 0), 0);
+  const earnedMarks = session.answers.reduce((s, a) => s + (a.score || 0), 0);
+
+  const pctClass = pct >= 70 ? 'score-high' : pct >= 50 ? 'score-mid' : 'score-low';
+  const scoreEmoji = pct >= 80 ? '🎉' : pct >= 60 ? '👍' : pct >= 40 ? '📖' : '💪';
+
+  function buildResultItem(answer, question, qIndex) {
+    const gr = answer.gradeResult || {};
+    const statusClass = answer.correct === true ? 'result-status-correct' : (answer.score > 0 ? 'result-status-partial' : 'result-status-incorrect');
+    const statusText = answer.correct === true ? 'Correct' : (answer.score > 0 ? 'Partial' : 'Incorrect');
+    const diffColors = { easy: 'badge-green', medium: 'badge-amber', hard: 'badge-red' };
+
+    let strengthsHtml = '';
+    if (gr.strengths && gr.strengths.length > 0) {
+      strengthsHtml = `<ul class="feedback-list strengths mt-2">
+        ${gr.strengths.map(s => `<li>${s}</li>`).join('')}
+      </ul>`;
+    }
+    let missingHtml = '';
+    if (gr.missingPoints && gr.missingPoints.length > 0) {
+      missingHtml = `<ul class="feedback-list missing mt-2">
+        ${gr.missingPoints.map(p => `<li>${p}</li>`).join('')}
+      </ul>`;
+    }
+    let markSchemeHtml = '';
+    if (question.markScheme && question.markScheme.length > 0) {
+      markSchemeHtml = `
+        <div class="mt-2">
+          <div class="feedback-label">Mark Scheme</div>
+          <ul class="feedback-list">
+            ${question.markScheme.map(p => `<li>${p}</li>`).join('')}
+          </ul>
+        </div>`;
+    }
+
+    return `
+      <div class="result-item ${statusClass}">
+        <div class="result-item-header">
+          <div class="result-status-dot"></div>
+          <div class="result-q-text"><strong>Q${qIndex + 1}.</strong> ${question.prompt.substring(0, 100)}${question.prompt.length > 100 ? '…' : ''}</div>
+          <div class="result-score">${answer.score || 0}/${answer.maxScore || question.marks}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+          <span class="badge ${diffColors[question.difficulty] || 'badge-gray'}" style="font-size:.7rem;">${question.difficulty}</span>
+          <span class="badge badge-gray" style="font-size:.7rem;">${question.topic}</span>
+          <span class="badge badge-gray" style="font-size:.7rem;">${question.questionType}</span>
+          <span class="badge ${answer.correct === true ? 'badge-green' : answer.score > 0 ? 'badge-amber' : 'badge-red'}" style="font-size:.7rem;">${statusText}</span>
+        </div>
+        ${answer.userAnswer ? `
+          <div class="mb-2">
+            <div class="feedback-label">Your answer</div>
+            <div style="font-size:.85rem;color:var(--text);background:var(--bg-input);padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);margin-top:4px;white-space:pre-wrap;">${answer.userAnswer}</div>
+          </div>` : ''}
+        <div class="result-feedback">${gr.feedback || question.explanation || ''}</div>
+        ${strengthsHtml}
+        ${missingHtml}
+        ${markSchemeHtml}
+      </div>
+    `;
+  }
+
+  const resultItems = session.answers.map((answer, i) => {
+    const question = QUESTION_MAP[answer.questionId];
+    return question ? buildResultItem(answer, question, i) : '';
+  }).join('');
+
+  document.getElementById('resultsContent').innerHTML = `
+    <div class="page-header fade-up" style="text-align:left;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
+        <span style="font-size:2rem;">${scoreEmoji}</span>
+        <h1>Quiz Complete</h1>
+      </div>
+      <p>${subject.name || 'Quiz'} · ${session.mode} mode · ${answered} questions</p>
+    </div>
+
+    <!-- Score summary -->
+    <div class="card fade-up s1 mb-4">
+      <div style="display:flex;align-items:center;gap:32px;flex-wrap:wrap;">
+        <div>
+          <div class="score-big ${pctClass}">${pct}%</div>
+          <div class="text-dim text-sm mt-1">Overall accuracy</div>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);gap:8px;">
+            <div class="stat-card stat-green" style="padding:12px;">
+              <div class="stat-label">Correct</div>
+              <div class="stat-value">${correct}</div>
+            </div>
+            <div class="stat-card stat-amber" style="padding:12px;">
+              <div class="stat-label">Partial</div>
+              <div class="stat-value">${partial}</div>
+            </div>
+            <div class="stat-card stat-red" style="padding:12px;">
+              <div class="stat-label">Incorrect</div>
+              <div class="stat-value">${incorrect}</div>
+            </div>
+          </div>
+          <div class="text-dim text-xs mt-2">Total marks: ${earnedMarks} / ${totalMarks}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-3 mb-6 flex-wrap fade-up s2">
+      <a href="subject.html?id=${session.subject}" class="btn btn-primary">Try Again</a>
+      <a href="index.html" class="btn btn-ghost">All Subjects</a>
+      <a href="dashboard.html" class="btn btn-ghost">Dashboard</a>
+    </div>
+
+    <!-- Per-question breakdown -->
+    <div class="fade-up s3">
+      <div class="section-label mb-3">Question Breakdown</div>
+      ${resultItems || '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-title">No answers recorded</div></div>'}
+    </div>
+  `;
+</script>
+</body>
+</html>

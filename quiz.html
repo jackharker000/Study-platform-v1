@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz — Study Platform</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-back" id="exitBtn">&#10005; Exit</a>
+  <div class="nav-spacer"></div>
+  <span class="nav-info" id="aiStatus" style="margin-right:4px;display:none;"></span>
+  <span class="nav-info" id="progressInfo">Q 1 / 1</span>
+  <span class="nav-info" id="modeBadge" style="margin-left:8px;"></span>
+</nav>
+
+<div class="container" style="padding-top:20px; padding-bottom:48px;">
+  <div class="progress-wrap">
+    <div class="progress-fill" id="progressBar" style="width:0%"></div>
+  </div>
+
+  <!-- Question card -->
+  <div class="card fade-in" id="questionCard">
+    <!-- Filled by JS -->
+  </div>
+
+  <!-- Action buttons -->
+  <div id="actionArea" style="margin-top:16px;"></div>
+</div>
+
+<script src="data.js"></script>
+<script src="grading.js"></script>
+<script src="store.js"></script>
+<script src="ai.js"></script>
+<script>
+  loadCustomQuestions();
+
+  // ── State ─────────────────────────────────────────────────────
+  const urlParams = new URLSearchParams(location.search);
+  const sessionId = urlParams.get('session');
+
+  let session = getSession(sessionId);
+  if (!session) { location.href = 'index.html'; }
+
+  let startTime = Date.now();
+  let selectedMcqOption = null;
+  let selectedConfidence = null;
+  let feedbackShown = false;
+  let lastGradeResult = null;
+  let currentQuestion = null;
+
+  const LABEL_MAP = { 0:'A', 1:'B', 2:'C', 3:'D' };
+
+  // ── Nav info ──────────────────────────────────────────────────
+  const MODE_LABELS = {
+    practice: 'Practice', exam: 'Exam', tutor: 'Tutor',
+    flashcard: 'Flashcard', weakness: 'Weakness', mistakes: 'Mistakes',
+  };
+  document.getElementById('modeBadge').textContent = MODE_LABELS[session.mode] || session.mode;
+
+  function updateProgress() {
+    const total = session.questionIds.length;
+    const idx = Math.min(session.currentIdx, total);
+    const pct = total > 0 ? (idx / total) * 100 : 0;
+    document.getElementById('progressBar').style.width = pct + '%';
+    document.getElementById('progressInfo').textContent = `Q ${Math.min(idx + 1, total)} / ${total}`;
+  }
+
+  // ── Render question ───────────────────────────────────────────
+  function renderQuestion() {
+    session = getSession(sessionId);
+    if (!session || session.status === 'completed') {
+      location.href = `results.html?session=${sessionId}`;
+      return;
+    }
+
+    currentQuestion = session.questions[session.currentIdx];
+    if (!currentQuestion) { location.href = `results.html?session=${sessionId}`; return; }
+
+    startTime = Date.now();
+    selectedMcqOption = null;
+    selectedConfidence = null;
+    feedbackShown = false;
+    lastGradeResult = null;
+
+    updateProgress();
+
+    const q = currentQuestion;
+    const subject = SUBJECT_MAP[q.subject] || {};
+    const diffColors = { easy: 'badge-green', medium: 'badge-amber', hard: 'badge-red' };
+
+    let inputHtml = '';
+    if (session.mode === 'flashcard') {
+      inputHtml = renderFlashcardFront(q);
+    } else if (q.questionType === 'mcq') {
+      inputHtml = renderMcqOptions(q);
+    } else {
+      const rows = q.questionType === 'essay' ? 8 : (q.questionType === 'calculation' ? 3 : 4);
+      const placeholder = q.questionType === 'calculation'
+        ? 'Show your working and give the final answer...'
+        : q.questionType === 'essay'
+        ? 'Write your full answer here...'
+        : 'Write your answer here...';
+      inputHtml = `<textarea class="textarea" id="answerInput" rows="${rows}" placeholder="${placeholder}"></textarea>`;
+    }
+
+    // Tutor: show teaching steps
+    let tutorHtml = '';
+    if (session.mode === 'tutor' && q.teachingSteps && q.teachingSteps.length > 0) {
+      tutorHtml = `
+        <div style="margin-bottom:16px;">
+          <div class="section-label mb-2">Step-by-step guide</div>
+          <div class="steps-list">
+            ${q.teachingSteps.map((step, i) => `
+              <div class="step-item">
+                <div class="step-num">${i+1}</div>
+                <div>${step}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    // Exam tip
+    let tipHtml = '';
+    if (session.mode !== 'flashcard' && session.mode !== 'exam') {
+      tipHtml = `<div class="tip-box mb-4"><strong>Tip:</strong> ${generateExamTip(q.questionType)}</div>`;
+    }
+
+    document.getElementById('questionCard').innerHTML = `
+      <div class="question-meta">
+        <span class="q-number">Q${session.currentIdx + 1} of ${session.questionIds.length}</span>
+        <span class="badge ${diffColors[q.difficulty] || 'badge-gray'}">${q.difficulty}</span>
+        <span class="badge badge-gray">${q.topic}</span>
+        <span class="badge badge-blue">${q.marks} mark${q.marks !== 1 ? 's' : ''}</span>
+        <span class="badge badge-gray" style="margin-left:auto;">${q.questionType}</span>
+      </div>
+      ${tipHtml}
+      ${tutorHtml}
+      <div class="question-text mb-4">${q.prompt}</div>
+      ${inputHtml}
+      <div id="feedbackArea"></div>
+    `;
+
+    renderActionButtons();
+  }
+
+  function renderMcqOptions(q) {
+    return `
+      <div class="mcq-list" id="mcqList">
+        ${q.options.map((opt, i) => `
+          <div class="mcq-option" data-idx="${i}" onclick="selectMcq(${i})">
+            <input type="radio" name="mcq" value="${i}">
+            <div class="mcq-label">${LABEL_MAP[i]}</div>
+            <div class="mcq-text">${opt}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderFlashcardFront(q) {
+    return `
+      <div class="flashcard">
+        <div class="flashcard-inner">
+          <div id="flashcardBack" class="hidden">
+            <div class="divider"></div>
+            <div class="section-label mb-2">Answer &amp; Explanation</div>
+            <div style="font-size:.9rem; color:var(--text); line-height:1.7;">${q.explanation}</div>
+            ${q.markScheme ? `
+              <div class="mt-3">
+                <div class="section-label mb-2">Mark Scheme</div>
+                <ul class="feedback-list strengths">
+                  ${q.markScheme.map(p => `<li>${p}</li>`).join('')}
+                </ul>
+              </div>` : ''}
+            ${q.teachingSteps ? `
+              <div class="mt-3">
+                <div class="section-label mb-2">Steps</div>
+                <div class="steps-list">
+                  ${q.teachingSteps.map((s,i)=>`<div class="step-item"><div class="step-num">${i+1}</div><div>${s}</div></div>`).join('')}
+                </div>
+              </div>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // ── MCQ selection ─────────────────────────────────────────────
+  function selectMcq(idx) {
+    if (feedbackShown) return;
+    selectedMcqOption = idx;
+    document.querySelectorAll('.mcq-option').forEach((el, i) => {
+      el.classList.toggle('selected', i === idx);
+    });
+    renderActionButtons();
+  }
+
+  // ── Action buttons ────────────────────────────────────────────
+  function renderActionButtons() {
+    const area = document.getElementById('actionArea');
+    const q = currentQuestion;
+    if (!q) return;
+
+    if (session.mode === 'flashcard') {
+      if (!feedbackShown) {
+        area.innerHTML = `
+          <button class="btn btn-primary btn-full" onclick="revealFlashcard()">Reveal Answer</button>
+        `;
+      } else {
+        area.innerHTML = `
+          <div class="mb-3">
+            <div class="section-label mb-2">How did you do?</div>
+            <div class="confidence-row">
+              <button class="conf-btn" onclick="submitFlashcard('confident')">✓ Got it</button>
+              <button class="conf-btn" onclick="submitFlashcard('unsure')">~ Almost</button>
+              <button class="conf-btn" onclick="submitFlashcard('guessed')">✗ Missed it</button>
+            </div>
+          </div>
+        `;
+      }
+      return;
+    }
+
+    if (!feedbackShown) {
+      const canSubmit = q.questionType !== 'mcq' || selectedMcqOption !== null;
+      const aiAvailable = hasApiKey && hasApiKey() && q.questionType !== 'mcq' && q.questionType !== 'calculation';
+      area.innerHTML = `
+        <button class="btn btn-primary btn-full" id="submitBtn"
+          onclick="handleSubmit()" ${canSubmit ? '' : 'disabled'}>
+          ${aiAvailable ? '✦ Submit & AI Grade' : 'Submit Answer'}
+        </button>
+        ${aiAvailable ? `<div class="text-xs text-dim" style="margin-top:6px;text-align:center;">Claude will intelligently mark your answer</div>` : ''}
+      `;
+    } else {
+      area.innerHTML = `
+        <div style="margin-bottom:12px;">
+          <div class="section-label mb-2">Confidence</div>
+          <div class="confidence-row">
+            ${['confident','unsure','guessed'].map(c => `
+              <button class="conf-btn${selectedConfidence === c ? ' active-conf' : ''}"
+                onclick="setConfidence('${c}')">${c.charAt(0).toUpperCase() + c.slice(1)}</button>
+            `).join('')}
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="handleNext()">
+          ${session.currentIdx >= session.questionIds.length - 1 ? 'See Results →' : 'Next Question →'}
+        </button>
+      `;
+    }
+  }
+
+  // ── Submit ────────────────────────────────────────────────────
+  async function handleSubmit() {
+    const q = currentQuestion;
+    const timeMs = Date.now() - startTime;
+
+    let userAnswer = '';
+    if (q.questionType === 'mcq') {
+      if (selectedMcqOption === null) return;
+      userAnswer = String(selectedMcqOption);
+    } else {
+      userAnswer = (document.getElementById('answerInput') || {}).value || '';
+      if (!userAnswer.trim()) {
+        showInlineError('Please write an answer before submitting.');
+        return;
+      }
+    }
+
+    // Determine whether to use AI grading
+    const useAI = typeof hasApiKey === 'function' && hasApiKey()
+      && q.questionType !== 'mcq'
+      && q.questionType !== 'calculation'
+      && session.mode !== 'exam';
+
+    let preGrade = null;
+
+    if (useAI) {
+      // Disable submit, show loading state
+      const btn = document.getElementById('submitBtn');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> AI grading…'; }
+      updateAiStatus('✦ Grading…', true);
+
+      try {
+        preGrade = await gradeWithAI(q, userAnswer);
+        preGrade.gradingType = 'ai_rubric';
+        updateAiStatus('✦ AI graded', false);
+      } catch (e) {
+        // Fall back to heuristic on error
+        console.warn('AI grading failed, falling back:', e.message);
+        updateAiStatus('Heuristic grade', false);
+      }
+    }
+
+    const result = submitAnswer({
+      sessionId: session.id,
+      questionId: q.id,
+      userAnswer,
+      confidence: selectedConfidence,
+      timeMs,
+      gradeResult: preGrade || undefined,
+    });
+
+    if (result.error) return;
+    session = getSession(sessionId);
+
+    lastGradeResult = result.gradeResult;
+    feedbackShown = true;
+
+    // In exam mode: no feedback shown, just advance
+    if (session.mode === 'exam') {
+      if (session.status === 'completed') {
+        location.href = `results.html?session=${sessionId}`;
+      } else {
+        renderQuestion();
+      }
+      return;
+    }
+
+    // Disable MCQ options after submission
+    if (q.questionType === 'mcq') {
+      lockMcqOptions(q, selectedMcqOption);
+    }
+
+    showFeedback(result.gradeResult, q);
+    renderActionButtons();
+    updateProgress();
+  }
+
+  function updateAiStatus(text, loading) {
+    const el = document.getElementById('aiStatus');
+    if (!el) return;
+    el.style.display = '';
+    el.innerHTML = loading
+      ? `<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> ${text}`
+      : text;
+  }
+
+  function lockMcqOptions(q, selected) {
+    document.querySelectorAll('.mcq-option').forEach((el, i) => {
+      el.onclick = null;
+      el.classList.remove('selected');
+      if (i === q.correctAnswer) el.classList.add('correct-ans');
+      if (i === selected && selected !== q.correctAnswer) el.classList.add('wrong-ans');
+    });
+  }
+
+  function showFeedback(gr, q) {
+    const feedbackArea = document.getElementById('feedbackArea');
+    const statusClass = gr.status === 'correct' ? 'feedback-correct' : gr.status === 'partial' ? 'feedback-partial' : 'feedback-incorrect';
+    const statusIcon = gr.status === 'correct' ? '✓ Correct' : gr.status === 'partial' ? '~ Partial Credit' : '✗ Incorrect';
+
+    let strengthsHtml = '';
+    if (gr.strengths && gr.strengths.length > 0) {
+      strengthsHtml = `
+        <div class="feedback-section">
+          <div class="feedback-label">What you did well</div>
+          <ul class="feedback-list strengths">
+            ${gr.strengths.map(s => `<li>${s}</li>`).join('')}
+          </ul>
+        </div>`;
+    }
+    let missingHtml = '';
+    if (gr.missingPoints && gr.missingPoints.length > 0) {
+      missingHtml = `
+        <div class="feedback-section">
+          <div class="feedback-label">Missing points</div>
+          <ul class="feedback-list missing">
+            ${gr.missingPoints.map(p => `<li>${p}</li>`).join('')}
+          </ul>
+        </div>`;
+    }
+
+    let markSchemeHtml = '';
+    if (q.markScheme && q.markScheme.length > 0 && gr.status !== 'correct') {
+      markSchemeHtml = `
+        <div class="feedback-section">
+          <div class="feedback-label">Mark Scheme</div>
+          <ul class="feedback-list">
+            ${q.markScheme.map(p => `<li>${p}</li>`).join('')}
+          </ul>
+        </div>`;
+    }
+
+    feedbackArea.innerHTML = `
+      <div class="feedback-box ${statusClass} mt-4">
+        <div class="feedback-title">${statusIcon} — ${gr.score}/${gr.maxScore} marks</div>
+        <div class="feedback-text">${gr.feedback}</div>
+        ${strengthsHtml}
+        ${missingHtml}
+        ${markSchemeHtml}
+      </div>
+    `;
+  }
+
+  function showInlineError(msg) {
+    let err = document.getElementById('inlineError');
+    if (!err) {
+      err = document.createElement('div');
+      err.id = 'inlineError';
+      err.style.cssText = 'color:var(--red);font-size:.875rem;margin-bottom:8px;';
+      document.getElementById('actionArea').prepend(err);
+    }
+    err.textContent = msg;
+  }
+
+  // ── Flashcard ─────────────────────────────────────────────────
+  function revealFlashcard() {
+    feedbackShown = true;
+    document.getElementById('flashcardBack').classList.remove('hidden');
+    renderActionButtons();
+  }
+
+  function submitFlashcard(confidence) {
+    const q = currentQuestion;
+    const correctAns = q.questionType === 'mcq'
+      ? String(q.correctAnswer)
+      : (q.correctAnswer || q.explanation || 'viewed');
+
+    submitAnswer({
+      sessionId: session.id,
+      questionId: q.id,
+      userAnswer: correctAns,
+      confidence,
+      timeMs: Date.now() - startTime,
+    });
+
+    session = getSession(sessionId);
+    if (session.status === 'completed') {
+      location.href = `results.html?session=${sessionId}`;
+    } else {
+      renderQuestion();
+    }
+  }
+
+  // ── Next ──────────────────────────────────────────────────────
+  function handleNext() {
+    session = getSession(sessionId);
+    if (session.status === 'completed') {
+      location.href = `results.html?session=${sessionId}`;
+    } else {
+      renderQuestion();
+    }
+  }
+
+  function setConfidence(c) {
+    selectedConfidence = c;
+    // Visually update confidence buttons
+    document.querySelectorAll('.conf-btn').forEach(btn => btn.classList.remove('active-conf'));
+    event.target.classList.add('active-conf');
+  }
+
+  // ── Keyboard shortcuts ────────────────────────────────────────
+  document.addEventListener('keydown', e => {
+    const q = currentQuestion;
+    if (!q) return;
+    if (q.questionType === 'mcq' && !feedbackShown) {
+      const keyMap = { '1': 0, '2': 1, '3': 2, '4': 3, 'a': 0, 'b': 1, 'c': 2, 'd': 3 };
+      const idx = keyMap[e.key.toLowerCase()];
+      if (idx !== undefined) selectMcq(idx);
+      if (e.key === 'Enter' && selectedMcqOption !== null) handleSubmit();
+    }
+    if (feedbackShown && e.key === 'Enter' && session.mode !== 'flashcard') handleNext();
+  });
+
+  // ── Init ──────────────────────────────────────────────────────
+  renderQuestion();
+</script>
+</body>
+</html>
