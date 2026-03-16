@@ -11,6 +11,7 @@
 <nav class="nav">
   <a href="index.html" class="nav-back" id="exitBtn">&#10005; Exit</a>
   <div class="nav-spacer"></div>
+  <span class="nav-info" id="aiStatus" style="margin-right:4px;display:none;"></span>
   <span class="nav-info" id="progressInfo">Q 1 / 1</span>
   <span class="nav-info" id="modeBadge" style="margin-left:8px;"></span>
 </nav>
@@ -32,7 +33,10 @@
 <script src="data.js"></script>
 <script src="grading.js"></script>
 <script src="store.js"></script>
+<script src="ai.js"></script>
 <script>
+  loadCustomQuestions();
+
   // ── State ─────────────────────────────────────────────────────
   const urlParams = new URLSearchParams(location.search);
   const sessionId = urlParams.get('session');
@@ -224,9 +228,13 @@
 
     if (!feedbackShown) {
       const canSubmit = q.questionType !== 'mcq' || selectedMcqOption !== null;
+      const aiAvailable = hasApiKey && hasApiKey() && q.questionType !== 'mcq' && q.questionType !== 'calculation';
       area.innerHTML = `
         <button class="btn btn-primary btn-full" id="submitBtn"
-          onclick="handleSubmit()" ${canSubmit ? '' : 'disabled'}>Submit Answer</button>
+          onclick="handleSubmit()" ${canSubmit ? '' : 'disabled'}>
+          ${aiAvailable ? '✦ Submit & AI Grade' : 'Submit Answer'}
+        </button>
+        ${aiAvailable ? `<div class="text-xs text-dim" style="margin-top:6px;text-align:center;">Claude will intelligently mark your answer</div>` : ''}
       `;
     } else {
       area.innerHTML = `
@@ -247,7 +255,7 @@
   }
 
   // ── Submit ────────────────────────────────────────────────────
-  function handleSubmit() {
+  async function handleSubmit() {
     const q = currentQuestion;
     const timeMs = Date.now() - startTime;
 
@@ -263,12 +271,38 @@
       }
     }
 
+    // Determine whether to use AI grading
+    const useAI = typeof hasApiKey === 'function' && hasApiKey()
+      && q.questionType !== 'mcq'
+      && q.questionType !== 'calculation'
+      && session.mode !== 'exam';
+
+    let preGrade = null;
+
+    if (useAI) {
+      // Disable submit, show loading state
+      const btn = document.getElementById('submitBtn');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> AI grading…'; }
+      updateAiStatus('✦ Grading…', true);
+
+      try {
+        preGrade = await gradeWithAI(q, userAnswer);
+        preGrade.gradingType = 'ai_rubric';
+        updateAiStatus('✦ AI graded', false);
+      } catch (e) {
+        // Fall back to heuristic on error
+        console.warn('AI grading failed, falling back:', e.message);
+        updateAiStatus('Heuristic grade', false);
+      }
+    }
+
     const result = submitAnswer({
       sessionId: session.id,
       questionId: q.id,
       userAnswer,
       confidence: selectedConfidence,
       timeMs,
+      gradeResult: preGrade || undefined,
     });
 
     if (result.error) return;
@@ -295,6 +329,15 @@
     showFeedback(result.gradeResult, q);
     renderActionButtons();
     updateProgress();
+  }
+
+  function updateAiStatus(text, loading) {
+    const el = document.getElementById('aiStatus');
+    if (!el) return;
+    el.style.display = '';
+    el.innerHTML = loading
+      ? `<span class="spinner" style="width:10px;height:10px;border-width:1.5px;"></span> ${text}`
+      : text;
   }
 
   function lockMcqOptions(q, selected) {

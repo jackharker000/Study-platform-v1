@@ -103,14 +103,45 @@ function getSession(id) {
   return readSession(id);
 }
 
-function submitAnswer({ sessionId, questionId, userAnswer, confidence, timeMs }) {
+/* ── Custom question library ──────────────────────────────────── */
+
+const CUSTOM_Q_KEY = 'rp-custom-questions';
+
+function getCustomQuestions() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_Q_KEY) || '[]'); } catch { return []; }
+}
+
+function saveCustomQuestion(q) {
+  const existing = getCustomQuestions().filter(e => e.id !== q.id);
+  localStorage.setItem(CUSTOM_Q_KEY, JSON.stringify([q, ...existing]));
+  QUESTION_MAP[q.id] = q;
+  if (!QUESTIONS.find(x => x.id === q.id)) QUESTIONS.push(q);
+}
+
+function deleteCustomQuestion(id) {
+  localStorage.setItem(CUSTOM_Q_KEY, JSON.stringify(getCustomQuestions().filter(q => q.id !== id)));
+  delete QUESTION_MAP[id];
+  const idx = QUESTIONS.findIndex(q => q.id === id);
+  if (idx >= 0) QUESTIONS.splice(idx, 1);
+}
+
+function loadCustomQuestions() {
+  for (const q of getCustomQuestions()) {
+    QUESTION_MAP[q.id] = q;
+    if (!QUESTIONS.find(x => x.id === q.id)) QUESTIONS.push(q);
+  }
+}
+
+/* ── Submit answer (accepts optional pre-computed gradeResult) ── */
+
+function submitAnswer({ sessionId, questionId, userAnswer, confidence, timeMs, gradeResult: preGrade }) {
   const session = readSession(sessionId);
   if (!session) return { error: 'Session not found.' };
 
   const question = QUESTION_MAP[questionId];
   if (!question) return { error: 'Question not found.' };
 
-  const gradeResult = gradeAnswer(question, userAnswer);
+  const gradeResult = preGrade || gradeAnswer(question, userAnswer);
 
   const answer = {
     id: uid(),

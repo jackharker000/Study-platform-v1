@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Question Generator — Study Platform</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-back">&#8592; Subjects</a>
+  <div class="nav-brand" style="margin-left:8px;">✦ <span>AI</span> Generator</div>
+  <div class="nav-spacer"></div>
+  <a href="dashboard.html" class="nav-link">Dashboard</a>
+</nav>
+
+<div class="container pb-8">
+
+  <!-- API Key Setup -->
+  <div class="card fade-up mb-4" id="apiKeyCard" style="margin-top:24px;">
+    <div class="modal-title">🔑 Anthropic API Key</div>
+    <div class="flex gap-3 items-center flex-wrap">
+      <input type="password" id="apiKeyInput" class="input" style="flex:1;min-width:200px;"
+        placeholder="sk-ant-..." autocomplete="off">
+      <button class="btn btn-primary btn-sm" onclick="saveKey()">Save Key</button>
+      <button class="btn btn-ghost btn-sm" onclick="testKey()">Test</button>
+    </div>
+    <div id="keyStatus" style="margin-top:8px;font-size:.82rem;color:var(--text-dim);">
+      Your key is stored locally in the browser and never sent anywhere except the Anthropic API.
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-generate" onclick="switchTab('generate')">✦ Generate Questions</button>
+    <button class="tab-btn" id="tab-import" onclick="switchTab('import')">📄 Import Past Paper</button>
+    <button class="tab-btn" id="tab-library" onclick="switchTab('library')">📚 My Library</button>
+  </div>
+
+  <!-- ── Generate Tab ─────────────────────────────────────────── -->
+  <div id="panel-generate">
+    <div class="card fade-up mb-4">
+      <div class="form-row">
+        <div class="form-group">
+          <div class="form-label">Subject</div>
+          <select class="input" id="gen-subject"></select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Topic</div>
+          <input type="text" class="input" id="gen-topic" placeholder="e.g. Newton's Laws">
+        </div>
+        <div class="form-group">
+          <div class="form-label">Difficulty</div>
+          <select class="input" id="gen-difficulty">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">Question Type</div>
+          <select class="input" id="gen-type">
+            <option value="mcq">MCQ</option>
+            <option value="short-answer">Short Answer</option>
+            <option value="calculation">Calculation</option>
+            <option value="essay">Essay</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">How Many</div>
+          <select class="input" id="gen-count">
+            <option value="1">1</option>
+            <option value="3" selected>3</option>
+            <option value="5">5</option>
+            <option value="10">10</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="generateBtn" onclick="runGenerate()">
+        ✦ Generate with AI
+      </button>
+    </div>
+
+    <div id="gen-loading" class="hidden">
+      <div class="loading-row card mb-4">
+        <div class="spinner spinner-lg"></div>
+        <span>Claude is writing your questions…</span>
+      </div>
+    </div>
+    <div id="gen-error" class="hidden" style="color:var(--red);font-size:.875rem;margin-bottom:12px;padding:12px;background:var(--red-bg);border-radius:var(--radius);border:1px solid rgba(239,68,68,.2);"></div>
+    <div id="gen-preview"></div>
+  </div>
+
+  <!-- ── Import Tab ────────────────────────────────────────────── -->
+  <div id="panel-import" class="hidden">
+    <div class="card fade-up mb-4">
+      <div class="form-row" style="margin-bottom:16px;">
+        <div class="form-group">
+          <div class="form-label">Subject</div>
+          <select class="input" id="imp-subject"></select>
+        </div>
+      </div>
+
+      <div class="form-group mb-4">
+        <div class="form-label mb-2">Past Paper Questions</div>
+        <textarea class="textarea textarea-lg" id="imp-paper" rows="10"
+          placeholder="Paste the exam questions here. Include question numbers, marks, and all sub-parts exactly as they appear on the paper."></textarea>
+      </div>
+
+      <div class="form-group mb-4">
+        <div class="form-label mb-2">Mark Scheme (optional but recommended)</div>
+        <textarea class="textarea" id="imp-scheme" rows="6"
+          placeholder="Paste the mark scheme here. Claude will use it to create detailed explanations and mark points."></textarea>
+      </div>
+
+      <button class="btn btn-primary" id="importBtn" onclick="runImport()">
+        ✦ Extract Questions with AI
+      </button>
+    </div>
+
+    <div id="imp-loading" class="hidden">
+      <div class="loading-row card mb-4">
+        <div class="spinner spinner-lg"></div>
+        <span>Claude is extracting questions from your paper…</span>
+      </div>
+    </div>
+    <div id="imp-error" class="hidden" style="color:var(--red);font-size:.875rem;margin-bottom:12px;padding:12px;background:var(--red-bg);border-radius:var(--radius);border:1px solid rgba(239,68,68,.2);"></div>
+    <div id="imp-preview"></div>
+  </div>
+
+  <!-- ── Library Tab ───────────────────────────────────────────── -->
+  <div id="panel-library" class="hidden">
+    <div id="library-content"></div>
+  </div>
+
+</div>
+
+<script src="data.js"></script>
+<script src="grading.js"></script>
+<script src="store.js"></script>
+<script src="ai.js"></script>
+<script>
+  // ── Init ──────────────────────────────────────────────────────
+  loadCustomQuestions();
+
+  // Populate subject selects
+  ['gen-subject', 'imp-subject'].forEach(id => {
+    const sel = document.getElementById(id);
+    SUBJECTS.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = `${s.icon} ${s.name}`;
+      sel.appendChild(opt);
+    });
+  });
+
+  // Load saved API key
+  const savedKey = getApiKey();
+  if (savedKey) {
+    document.getElementById('apiKeyInput').value = savedKey;
+    document.getElementById('keyStatus').innerHTML = '<span class="key-status-ok">✓ API key saved</span>';
+  }
+
+  // ── API key ───────────────────────────────────────────────────
+  function saveKey() {
+    const val = document.getElementById('apiKeyInput').value.trim();
+    if (!val) return showKeyStatus('Enter a key first.', false);
+    setApiKey(val);
+    showKeyStatus('✓ Key saved!', true);
+  }
+
+  async function testKey() {
+    const val = document.getElementById('apiKeyInput').value.trim();
+    if (!val) return showKeyStatus('Enter a key first.', false);
+    setApiKey(val);
+    showKeyStatus('Testing…', null);
+    try {
+      await callClaude([{ role: 'user', content: 'Reply with just "ok".' }], 'Reply "ok".', AI_MODEL_GRADE);
+      showKeyStatus('✓ API key is working!', true);
+    } catch (e) {
+      showKeyStatus('✗ ' + e.message, false);
+    }
+  }
+
+  function showKeyStatus(msg, ok) {
+    const el = document.getElementById('keyStatus');
+    el.innerHTML = ok === true
+      ? `<span class="key-status-ok">${msg}</span>`
+      : ok === false
+      ? `<span class="key-status-err">${msg}</span>`
+      : `<span style="color:var(--text-dim)">${msg}</span>`;
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────────
+  function switchTab(name) {
+    ['generate', 'import', 'library'].forEach(t => {
+      document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+      document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== name);
+    });
+    if (name === 'library') renderLibrary();
+  }
+
+  // ── Preview helpers ───────────────────────────────────────────
+  const DIFF_BADGE = { easy: 'badge-green', medium: 'badge-amber', hard: 'badge-red' };
+
+  function renderPreviewCards(questions, containerId) {
+    const container = document.getElementById(containerId);
+    if (questions.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">🤷</div><div class="empty-title">No questions extracted</div><p class="text-dim text-sm">Try pasting more text or check your API key.</p></div>';
+      return;
+    }
+
+    container.innerHTML = '';
+
+    const header = document.createElement('div');
+    header.className = 'flex items-center justify-between mb-3';
+    header.innerHTML = `
+      <div class="section-label">${questions.length} question${questions.length !== 1 ? 's' : ''} generated</div>
+      <div class="flex gap-2">
+        <button class="btn btn-success btn-sm" onclick="saveAll(${JSON.stringify(containerId)})">Save All to Library</button>
+      </div>
+    `;
+    container.appendChild(header);
+
+    questions.forEach((q, i) => {
+      const card = document.createElement('div');
+      card.className = 'preview-card fade-up';
+      card.id = `pcard-${containerId}-${i}`;
+      card.dataset.saved = 'false';
+
+      let detailsHtml = '';
+      if (q.questionType === 'mcq' && q.options) {
+        detailsHtml += `<div style="margin-top:8px;"><div class="feedback-label mb-1">Options</div>${q.options.map((o, oi) => `<div style="font-size:.82rem;padding:3px 0;${oi === q.correctAnswer ? 'color:var(--green);font-weight:600;' : 'color:var(--text-dim);'}">  ${['A','B','C','D'][oi]}. ${o}${oi === q.correctAnswer ? ' ✓' : ''}</div>`).join('')}</div>`;
+      }
+      if (q.questionType === 'calculation' && q.correctAnswer) {
+        detailsHtml += `<div style="margin-top:6px;font-size:.82rem;"><strong style="color:var(--text-dim);">Answer:</strong> <span style="color:var(--amber);">${q.correctAnswer}</span></div>`;
+      }
+      if (q.markScheme && q.markScheme.length > 0) {
+        detailsHtml += `<div class="preview-card-ms"><div class="feedback-label mb-1">Mark Scheme</div>${q.markScheme.map(p => `<div>• ${p}</div>`).join('')}</div>`;
+      }
+      if (q.explanation) {
+        detailsHtml += `<div class="preview-card-ms" style="margin-top:6px;"><span style="color:var(--accent);font-weight:600;">Explanation:</span> ${q.explanation}</div>`;
+      }
+
+      card.innerHTML = `
+        <div class="preview-card-meta">
+          <span class="badge ${DIFF_BADGE[q.difficulty] || 'badge-gray'}">${q.difficulty}</span>
+          <span class="badge badge-gray">${q.questionType}</span>
+          <span class="badge badge-blue">${q.marks} mark${q.marks !== 1 ? 's' : ''}</span>
+          <span class="badge badge-ai">✦ AI</span>
+          <span class="badge badge-gray" style="margin-left:auto;">${q.topic || q.subtopic || ''}</span>
+        </div>
+        <div class="preview-card-prompt">${q.prompt}</div>
+        ${detailsHtml}
+        <div class="preview-card-actions" style="margin-top:12px;">
+          <button class="btn btn-success btn-sm" id="save-btn-${containerId}-${i}"
+            onclick="saveOne(${JSON.stringify(containerId)}, ${i})">+ Save to Library</button>
+          <button class="btn btn-ghost btn-sm"
+            onclick="discardOne(${JSON.stringify(containerId)}, ${i})">Discard</button>
+        </div>
+      `;
+      container.appendChild(card);
+    });
+
+    // Store questions on container element for bulk save
+    container._questions = questions;
+  }
+
+  function saveOne(containerId, idx) {
+    const container = document.getElementById(containerId);
+    const q = container._questions[idx];
+    if (!q) return;
+    saveCustomQuestion(q);
+    const card = document.getElementById(`pcard-${containerId}-${idx}`);
+    card.classList.add('saved');
+    const btn = document.getElementById(`save-btn-${containerId}-${idx}`);
+    btn.textContent = '✓ Saved';
+    btn.disabled = true;
+  }
+
+  function saveAll(containerId) {
+    const container = document.getElementById(containerId);
+    const questions = container._questions || [];
+    questions.forEach((q, i) => saveOne(containerId, i));
+    // Show toast
+    showToast(`✓ ${questions.length} questions saved to your library`);
+  }
+
+  function discardOne(containerId, idx) {
+    const card = document.getElementById(`pcard-${containerId}-${idx}`);
+    card.classList.add('discarded');
+    setTimeout(() => card.remove(), 400);
+  }
+
+  // ── Generate ──────────────────────────────────────────────────
+  async function runGenerate() {
+    const subject    = document.getElementById('gen-subject').value;
+    const topic      = document.getElementById('gen-topic').value.trim();
+    const difficulty = document.getElementById('gen-difficulty').value;
+    const qType      = document.getElementById('gen-type').value;
+    const count      = parseInt(document.getElementById('gen-count').value, 10);
+
+    if (!topic) return showError('gen-error', 'Please enter a topic.');
+    if (!hasApiKey()) return showError('gen-error', 'No API key saved. Enter your Anthropic API key above.');
+
+    setLoading('gen', true);
+    clearError('gen-error');
+    document.getElementById('gen-preview').innerHTML = '';
+
+    try {
+      const questions = await generateQuestions({ subject, topic, difficulty, questionType: qType, count });
+      renderPreviewCards(questions, 'gen-preview');
+    } catch (e) {
+      showError('gen-error', e.message);
+    } finally {
+      setLoading('gen', false);
+    }
+  }
+
+  // ── Import ────────────────────────────────────────────────────
+  async function runImport() {
+    const subject     = document.getElementById('imp-subject').value;
+    const paperText   = document.getElementById('imp-paper').value.trim();
+    const schemeText  = document.getElementById('imp-scheme').value.trim();
+
+    if (!paperText) return showError('imp-error', 'Please paste some past paper content.');
+    if (!hasApiKey()) return showError('imp-error', 'No API key saved. Enter your Anthropic API key above.');
+
+    setLoading('imp', true);
+    clearError('imp-error');
+    document.getElementById('imp-preview').innerHTML = '';
+
+    try {
+      const questions = await importFromPastPaper({ subject, paperText, markSchemeText: schemeText });
+      renderPreviewCards(questions, 'imp-preview');
+    } catch (e) {
+      showError('imp-error', e.message);
+    } finally {
+      setLoading('imp', false);
+    }
+  }
+
+  // ── Library ───────────────────────────────────────────────────
+  function renderLibrary() {
+    const container = document.getElementById('library-content');
+    const customs = getCustomQuestions();
+    if (customs.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <div class="empty-title">Your library is empty</div>
+          <p class="text-dim text-sm mt-2">Generate or import questions to build your personal question bank.</p>
+        </div>`;
+      return;
+    }
+
+    // Group by subject
+    const grouped = {};
+    for (const q of customs) {
+      grouped[q.subject] = grouped[q.subject] || [];
+      grouped[q.subject].push(q);
+    }
+
+    container.innerHTML = '';
+
+    const header = document.createElement('div');
+    header.className = 'flex items-center justify-between mb-4';
+    header.innerHTML = `
+      <div class="section-label">${customs.length} saved question${customs.length !== 1 ? 's' : ''}</div>
+      <button class="btn btn-ghost btn-sm" onclick="startCustomQuiz()">Start Quiz with All →</button>
+    `;
+    container.appendChild(header);
+
+    for (const [subjectId, qs] of Object.entries(grouped)) {
+      const subj = SUBJECT_MAP[subjectId] || { name: subjectId, icon: '📚' };
+      const section = document.createElement('div');
+      section.className = 'mb-6';
+      section.innerHTML = `
+        <div class="flex items-center gap-2 mb-3">
+          <span style="font-size:1.2rem;">${subj.icon}</span>
+          <span class="font-semibold text-bright">${subj.name}</span>
+          <span class="badge badge-gray">${qs.length}</span>
+        </div>
+      `;
+
+      qs.forEach(q => {
+        const tagBadge = (q.tags || []).includes('past-paper') ? 'badge-amber' : 'badge-ai';
+        const tagLabel = (q.tags || []).includes('past-paper') ? 'Past Paper' : '✦ AI';
+        const item = document.createElement('div');
+        item.className = 'result-item mb-2';
+        item.innerHTML = `
+          <div class="result-item-header">
+            <div class="result-status-dot" style="background:var(--accent);"></div>
+            <div class="result-q-text">${q.prompt.substring(0, 90)}${q.prompt.length > 90 ? '…' : ''}</div>
+          </div>
+          <div class="flex gap-2 items-center flex-wrap">
+            <span class="badge ${DIFF_BADGE[q.difficulty] || 'badge-gray'}">${q.difficulty}</span>
+            <span class="badge badge-gray">${q.questionType}</span>
+            <span class="badge badge-blue">${q.marks} mark${q.marks !== 1 ? 's' : ''}</span>
+            <span class="badge ${tagBadge}">${tagLabel}</span>
+            <span class="text-dim text-xs" style="margin-left:auto;">${q.topic || q.subtopic || ''}</span>
+            <button class="btn btn-danger btn-sm" onclick="removeQ('${q.id}')">Remove</button>
+          </div>
+        `;
+        section.appendChild(item);
+      });
+      container.appendChild(section);
+    }
+  }
+
+  function removeQ(id) {
+    if (!confirm('Remove this question from your library?')) return;
+    deleteCustomQuestion(id);
+    renderLibrary();
+  }
+
+  function startCustomQuiz() {
+    const customs = getCustomQuestions();
+    if (customs.length === 0) return;
+    // Use the first question's subject
+    const subject = customs[0].subject;
+    location.href = `subject.html?id=${subject}`;
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
+  function setLoading(prefix, on) {
+    document.getElementById(`${prefix}-loading`).classList.toggle('hidden', !on);
+    const btn = document.getElementById(`${prefix === 'gen' ? 'generate' : 'import'}Btn`);
+    btn.disabled = on;
+    btn.innerHTML = on
+      ? '<span class="spinner"></span> Working…'
+      : prefix === 'gen' ? '✦ Generate with AI' : '✦ Extract Questions with AI';
+  }
+
+  function showError(id, msg) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function clearError(id) {
+    document.getElementById(id).classList.add('hidden');
+  }
+
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;padding:10px 20px;border-radius:20px;font-weight:600;font-size:.875rem;z-index:999;animation:fadeIn .2s ease;';
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 2800);
+  }
+</script>
+</body>
+</html>
