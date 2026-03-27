@@ -8,9 +8,9 @@
  * After running scripts/migrate-to-cloud.js, fill in the two constants below:
  */
 
-// ── Config — fill these in after migration ────────────────────────────────────
-const TURSO_DB_URL    = '';   // e.g. 'https://study-questions-yourname.turso.io'
-const TURSO_READ_TOKEN = '';  // read-only token (safe to expose in frontend)
+// ── Config ────────────────────────────────────────────────────────────────────
+const TURSO_DB_URL    = 'https://study-questions-jackharker000.aws-ap-northeast-1.turso.io';
+const TURSO_READ_TOKEN = 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicm8iLCJpYXQiOjE3NzQ2NTI1NzgsImlkIjoiMDE5ZDMxODgtMmEwMS03OTJiLWFhZGMtOTY2ZWMwOWY2ZWVmIiwicmlkIjoiYzM5ZDMyZjItNjVhZC00M2VhLWI5ZDUtNjQ4NzhiYTFkMmE3In0.267CiN24_MlONHTmy4OgXSCYuFAqq_7aW9pzYNWK__iUezmh_z36uDAIs1U3hE6axJcBYqQ9i7ZR1s5TxiBHDQ';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const _CACHE_PREFIX = 'rp-turso-';
