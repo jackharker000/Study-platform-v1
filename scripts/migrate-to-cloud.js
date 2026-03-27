@@ -4,7 +4,7 @@
  *
  * Uploads 200k+ past-paper questions from a local SQLite database to:
  *   - Turso (cloud SQLite) for question metadata
- *   - Cloudflare R2 (S3-compatible) for JPEG question images
+ *   - Cloudinary (free image hosting, no credit card) for JPEG question images
  *
  * Usage:
  *   1. Copy scripts/.env.migrate.example → scripts/.env.migrate and fill in credentials
@@ -30,18 +30,17 @@ for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
 
 const {
   TURSO_URL, TURSO_TOKEN,
-  R2_ACCOUNT_ID, R2_ACCESS_KEY, R2_SECRET, R2_BUCKET, R2_PUBLIC_URL,
+  CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET,
   DB_PATH, PDF_ROOT,
 } = process.env;
 
-for (const key of ['TURSO_URL','TURSO_TOKEN','R2_ACCOUNT_ID','R2_ACCESS_KEY','R2_SECRET','R2_BUCKET','R2_PUBLIC_URL','DB_PATH','PDF_ROOT']) {
+for (const key of ['TURSO_URL','TURSO_TOKEN','CLOUDINARY_CLOUD_NAME','CLOUDINARY_API_KEY','CLOUDINARY_API_SECRET','DB_PATH','PDF_ROOT']) {
   if (!process.env[key]) { console.error(`❌  Missing env var: ${key}`); process.exit(1); }
 }
 
 // ── Lazy-require heavy deps ────────────────────────────────────────────────────
-let Database, S3Client, PutObjectCommand, sharp;
+let Database, sharp;
 try { Database = require('better-sqlite3'); } catch { console.error('❌  Run: npm install better-sqlite3'); process.exit(1); }
-try { ({ S3Client, PutObjectCommand } = require('@aws-sdk/client-s3')); } catch { console.error('❌  Run: npm install @aws-sdk/client-s3'); process.exit(1); }
 try { sharp = require('sharp'); } catch { console.error('❌  Run: npm install sharp'); process.exit(1); }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -95,22 +94,35 @@ async function tursoExec(statements) {
   return res.json();
 }
 
-// ── R2 / S3 client ─────────────────────────────────────────────────────────────
-const s3 = new S3Client({
-  region: 'auto',
-  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: { accessKeyId: R2_ACCESS_KEY, secretAccessKey: R2_SECRET },
-});
+// ── Cloudinary upload ──────────────────────────────────────────────────────────
+const CLOUDINARY_BASE = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`;
 
-async function uploadJpeg(questionId, jpegBuffer) {
-  const key = `questions/${questionId}.jpg`;
-  await s3.send(new PutObjectCommand({
-    Bucket: R2_BUCKET,
-    Key: key,
-    Body: jpegBuffer,
-    ContentType: 'image/jpeg',
-  }));
-  return `${R2_PUBLIC_URL}/${key}`;
+async function uploadToCloudinary(questionId, imageBuffer, mimeType) {
+  // Cloudinary upload via REST API — no SDK needed
+  const base64 = imageBuffer.toString('base64');
+  const dataUri = `data:${mimeType};base64,${base64}`;
+
+  const body = new URLSearchParams({
+    file:        dataUri,
+    public_id:   `study-questions/${questionId}`,
+    overwrite:   'false',
+    api_key:     CLOUDINARY_API_KEY,
+    timestamp:   String(Math.floor(Date.now() / 1000)),
+  });
+
+  // Generate signature: sha256(public_id=...&timestamp=...&CLOUDINARY_API_SECRET)
+  const crypto = require('crypto');
+  const toSign = `overwrite=false&public_id=study-questions/${questionId}&timestamp=${body.get('timestamp')}${CLOUDINARY_API_SECRET}`;
+  body.set('signature', crypto.createHash('sha256').update(toSign).digest('hex'));
+
+  const res = await fetch(CLOUDINARY_BASE, { method: 'POST', body });
+  if (!res.ok) {
+    const t = await res.text();
+    throw new Error(`Cloudinary ${res.status}: ${t}`);
+  }
+  const json = await res.json();
+  // Return the optimised delivery URL (auto quality + format)
+  return json.secure_url.replace('/upload/', '/upload/f_auto,q_auto/');
 }
 
 // ── PDF → JPEG conversion ──────────────────────────────────────────────────────
@@ -245,18 +257,12 @@ async function main() {
 
       if (!fs.existsSync(pdfPath)) throw new Error(`PDF not found: ${pdfPath}`);
 
-      // Convert PDF → JPEG and upload
+      // Convert PDF → JPEG and upload to Cloudinary
       const imgBuf = await pdfToJpeg(pdfPath);
       const isJpeg = imgBuf[0] === 0xFF && imgBuf[1] === 0xD8;
-      const ext    = isJpeg ? 'jpg' : 'pdf';
-      const key    = `questions/${row.id}.${ext}`;
       const mime   = isJpeg ? 'image/jpeg' : 'application/pdf';
 
-      await s3.send(new PutObjectCommand({
-        Bucket: R2_BUCKET, Key: key, Body: imgBuf, ContentType: mime,
-      }));
-
-      const pdfUrl = `${R2_PUBLIC_URL}/${key}`;
+      const pdfUrl = await uploadToCloudinary(row.id, imgBuf, mime);
       const topics = row.topic_list ? row.topic_list.split('||').filter(Boolean) : [];
       const ms     = parseMarkScheme(row.ms_text, row.ms_guidance);
 
