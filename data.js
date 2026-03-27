@@ -583,6 +583,11 @@ const QUESTIONS = [
   },
 ];
 
+/* ── Merge past-paper questions from export ─────────────────────── */
+if (typeof DB_QUESTIONS !== 'undefined') {
+  QUESTIONS.push(...DB_QUESTIONS);
+}
+
 /* ── Question map & helpers ─────────────────────────────────────── */
 let QUESTION_MAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
 

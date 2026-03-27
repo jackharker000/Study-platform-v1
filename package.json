@@ -9,7 +9,8 @@
     "start": "next start",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "export-questions": "node scripts/export-questions.js"
   },
   "repository": {
     "type": "git",
@@ -18,6 +19,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "devDependencies": {
+    "better-sqlite3": "^9.4.3"
+  },
   "dependencies": {
     "@prisma/adapter-libsql": "^7.5.0",
     "@prisma/client": "^5.22.0",

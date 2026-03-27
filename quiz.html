@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quiz — Study Platform</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
 
@@ -30,6 +31,7 @@
   <div id="actionArea" style="margin-top:16px;"></div>
 </div>
 
+<script src="questions-db.js"></script>
 <script src="data.js"></script>
 <script src="grading.js"></script>
 <script src="store.js"></script>
@@ -94,7 +96,7 @@
     let inputHtml = '';
     if (session.mode === 'flashcard') {
       inputHtml = renderFlashcardFront(q);
-    } else if (q.questionType === 'mcq') {
+    } else if (q.questionType === 'mcq' && !q.pdfUrl) {
       inputHtml = renderMcqOptions(q);
     } else {
       const rows = q.questionType === 'essay' ? 8 : (q.questionType === 'calculation' ? 3 : 4);
@@ -102,6 +104,8 @@
         ? 'Show your working and give the final answer...'
         : q.questionType === 'essay'
         ? 'Write your full answer here...'
+        : (q.questionType === 'mcq-image')
+        ? 'Enter the letter of your answer (A, B, C or D)...'
         : 'Write your answer here...';
       inputHtml = `<textarea class="textarea" id="answerInput" rows="${rows}" placeholder="${placeholder}"></textarea>`;
     }
@@ -138,14 +142,29 @@
         <span class="badge badge-blue">${q.marks} mark${q.marks !== 1 ? 's' : ''}</span>
         <span class="badge badge-gray" style="margin-left:auto;">${q.questionType}</span>
       </div>
+      ${q.meta ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:.78rem;color:var(--text-dim);">
+        <span>📄 ${q.meta.subject || ''}</span>
+        ${q.meta.year ? `<span>${q.meta.year} ${q.meta.session || ''}</span>` : ''}
+        ${q.meta.paper ? `<span>Paper ${q.meta.paper}</span>` : ''}
+        ${q.meta.questionNum ? `<span>Q${q.meta.questionNum}</span>` : ''}
+      </div>` : ''}
       ${tipHtml}
       ${tutorHtml}
-      <div class="question-text mb-4">${q.prompt}</div>
+      ${q.pdfUrl
+        ? `<div class="mb-4" style="background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:8px;overflow:auto;">
+             <canvas id="qPdfCanvas" style="max-width:100%;display:block;"></canvas>
+           </div>`
+        : `<div class="question-text mb-4">${q.prompt}</div>`
+      }
       ${inputHtml}
       <div id="feedbackArea"></div>
     `;
 
     renderActionButtons();
+
+    // Render PDF image if this is a past-paper image question
+    if (q.pdfUrl) renderPdfQuestion(q.pdfUrl);
   }
 
   function renderMcqOptions(q) {
@@ -587,8 +606,26 @@
     if (h) h.scrollTop = h.scrollHeight;
   }
 
+  // ── PDF question rendering ────────────────────────────────────
+  async function renderPdfQuestion(pdfUrl) {
+    const canvas = document.getElementById('qPdfCanvas');
+    if (!canvas) return;
+    try {
+      const pdfjsLib = window['pdfjs-dist/build/pdf'];
+      if (!pdfjsLib) { canvas.parentElement.innerHTML = `<p style="padding:12px;color:var(--text-dim);">PDF.js not loaded — cannot render question image.</p>`; return; }
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1.8 });
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    } catch (e) {
+      if (canvas) canvas.parentElement.innerHTML = `<p style="padding:12px;color:var(--text-dim);">Could not load question image: ${e.message}</p>`;
+    }
+  }
+
   // ── Init ──────────────────────────────────────────────────────
   renderQuestion();
-</script>
 </body>
 </html>

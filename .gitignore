@@ -9,3 +9,8 @@ prisma/*.db
 dist/
 .DS_Store
 .vercel/cache
+
+# Past-paper database (large, local-only — copy manually from your machine)
+database/
+# Generated from DB — run: node scripts/export-questions.js
+# questions-db.js is committed as an empty stub; re-generate locally after copying database/
