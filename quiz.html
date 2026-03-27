@@ -31,6 +31,7 @@
   <div id="actionArea" style="margin-top:16px;"></div>
 </div>
 
+<script src="questions-api.js"></script>
 <script src="questions-db.js"></script>
 <script src="data.js"></script>
 <script src="grading.js"></script>
@@ -104,7 +105,7 @@
         ? 'Show your working and give the final answer...'
         : q.questionType === 'essay'
         ? 'Write your full answer here...'
-        : (q.questionType === 'mcq-image')
+        : (q.questionType === 'mcq-image' || (q.questionType === 'mcq' && q.pdfUrl))
         ? 'Enter the letter of your answer (A, B, C or D)...'
         : 'Write your answer here...';
       inputHtml = `<textarea class="textarea" id="answerInput" rows="${rows}" placeholder="${placeholder}"></textarea>`;
@@ -606,13 +607,23 @@
     if (h) h.scrollTop = h.scrollHeight;
   }
 
-  // ── PDF question rendering ────────────────────────────────────
+  // ── PDF/image question rendering ─────────────────────────────
   async function renderPdfQuestion(pdfUrl) {
+    const wrap = document.getElementById('qPdfCanvas')?.parentElement;
+    if (!wrap) return;
+
+    // JPEG/PNG from migration — just use an <img> tag (fast, no PDF.js needed)
+    if (/\.(jpe?g|png|webp)(\?|$)/i.test(pdfUrl)) {
+      wrap.innerHTML = `<img src="${pdfUrl}" alt="Question" style="max-width:100%;display:block;border-radius:4px;">`;
+      return;
+    }
+
+    // PDF fallback — use PDF.js
     const canvas = document.getElementById('qPdfCanvas');
     if (!canvas) return;
     try {
       const pdfjsLib = window['pdfjs-dist/build/pdf'];
-      if (!pdfjsLib) { canvas.parentElement.innerHTML = `<p style="padding:12px;color:var(--text-dim);">PDF.js not loaded — cannot render question image.</p>`; return; }
+      if (!pdfjsLib) { wrap.innerHTML = `<p style="padding:12px;color:var(--text-dim);">PDF.js not loaded — cannot render question image.</p>`; return; }
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
       const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
       const page = await pdf.getPage(1);
@@ -621,7 +632,7 @@
       canvas.height = viewport.height;
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
     } catch (e) {
-      if (canvas) canvas.parentElement.innerHTML = `<p style="padding:12px;color:var(--text-dim);">Could not load question image: ${e.message}</p>`;
+      wrap.innerHTML = `<p style="padding:12px;color:var(--text-dim);">Could not load question image: ${e.message}</p>`;
     }
   }
 

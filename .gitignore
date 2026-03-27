@@ -10,7 +10,11 @@ dist/
 .DS_Store
 .vercel/cache
 
-# Past-paper database (large, local-only — copy manually from your machine)
+# Past-paper database (large, local-only)
 database/
-# Generated from DB — run: node scripts/export-questions.js
-# questions-db.js is committed as an empty stub; re-generate locally after copying database/
+
+# Migration credentials — NEVER commit this
+scripts/.env.migrate
+
+# Migration progress (local state)
+scripts/migration-progress.json

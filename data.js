@@ -591,6 +591,19 @@ if (typeof DB_QUESTIONS !== 'undefined') {
 /* ── Question map & helpers ─────────────────────────────────────── */
 let QUESTION_MAP = Object.fromEntries(QUESTIONS.map(q => [q.id, q]));
 
+/**
+ * Called by questions-api.js after fetching a batch from Turso.
+ * Adds remote questions to QUESTIONS + QUESTION_MAP, deduplicating by id.
+ */
+window.__mergeRemoteQuestions = function(qs) {
+  for (const q of qs) {
+    if (!QUESTION_MAP[q.id]) {
+      QUESTIONS.push(q);
+      QUESTION_MAP[q.id] = q;
+    }
+  }
+};
+
 function filterQuestions(subjectId, filters = {}) {
   let qs = QUESTIONS.filter(q => q.subject === subjectId);
   if (filters.topic)      qs = qs.filter(q => q.topic === filters.topic);
