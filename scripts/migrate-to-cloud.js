@@ -22,7 +22,7 @@ if (!fs.existsSync(envPath)) {
   console.error('❌  Missing scripts/.env.migrate');
   process.exit(1);
 }
-for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+for (const line of fs.readFileSync(envPath, 'utf8').replace(/^\uFEFF/, '').split('\n')) {
   const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
   if (m) process.env[m[1]] = m[2].trim();
 }
