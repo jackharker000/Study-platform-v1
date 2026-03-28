@@ -224,7 +224,7 @@ async function main() {
 
     const results = await Promise.allSettled(batch.map(async row => {
       const subjectId = mapSubject(row.subject, row.level);
-      if (!subjectId) throw new Error(`Unknown subject: ${row.subject}`);
+      if (!subjectId) return null; // skip subjects not on the website
 
       const pdfPath = path.isAbsolute(row.question_pdf)
         ? row.question_pdf
@@ -254,8 +254,11 @@ async function main() {
     for (let j = 0; j < batch.length; j++) {
       if (results[j].status === 'fulfilled') {
         uploadedSet.add(batch[j].id);
-        toInsert.push(results[j].value);
-        done++;
+        if (results[j].value !== null) {
+          toInsert.push(results[j].value);
+          done++;
+        }
+        // null = skipped (unknown subject) — still mark as processed
       } else {
         progress.failed.push({ id: batch[j].id, error: results[j].reason?.message });
         failed++;
