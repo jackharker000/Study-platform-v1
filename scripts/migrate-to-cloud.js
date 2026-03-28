@@ -22,9 +22,13 @@ if (!fs.existsSync(envPath)) {
   console.error('❌  Missing scripts/.env.migrate');
   process.exit(1);
 }
-for (const line of fs.readFileSync(envPath, 'utf8').replace(/^\uFEFF/, '').split('\n')) {
-  const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-  if (m) process.env[m[1]] = m[2].trim();
+const envRaw = fs.readFileSync(envPath, 'utf8').replace(/^\uFEFF/, '').replace(/\r/g, '');
+for (const line of envRaw.split('\n')) {
+  const eq = line.indexOf('=');
+  if (eq < 1) continue;
+  const key = line.slice(0, eq).trim();
+  const val = line.slice(eq + 1).trim();
+  if (/^[A-Z0-9_]+$/.test(key)) process.env[key] = val;
 }
 
 const {
