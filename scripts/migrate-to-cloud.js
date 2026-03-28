@@ -53,9 +53,13 @@ try { initSqlJs = require('sql.js'); } catch {
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
-const BATCH_SIZE    = 10;   // parallel Cloudinary uploads per batch
+const BATCH_SIZE    = 3;    // parallel Cloudinary uploads per batch (low to avoid 429s)
 const TURSO_BATCH   = 100;  // rows per Turso insert
+const BATCH_DELAY   = 300;  // ms pause between batches to stay under rate limits
 const PROGRESS_FILE = path.join(__dirname, 'migration-progress.json');
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 // ── Subject ID / name / icon / color — auto-generated from DB ─────────────────
 function mapSubject(subject, level) {
@@ -153,7 +157,7 @@ async function tursoExec(statements) {
 // ── Cloudinary upload ──────────────────────────────────────────────────────────
 const crypto = require('crypto');
 
-async function uploadToCloudinary(questionId, fileBuffer) {
+async function uploadToCloudinary(questionId, fileBuffer, attempt = 0) {
   const base64   = fileBuffer.toString('base64');
   const dataUri  = `data:application/pdf;base64,${base64}`;
   const publicId = `study-questions/${questionId}`;
@@ -172,6 +176,14 @@ async function uploadToCloudinary(questionId, fileBuffer) {
     `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
     { method: 'POST', body }
   );
+
+  // Retry on rate limit (429) or server errors (5xx) — up to 4 times
+  if ((res.status === 429 || res.status >= 500) && attempt < 4) {
+    const wait = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s, 16s
+    await sleep(wait);
+    return uploadToCloudinary(questionId, fileBuffer, attempt + 1);
+  }
+
   if (!res.ok) throw new Error(`Cloudinary ${res.status}: ${await res.text()}`);
   const json = await res.json();
   // Return URL that renders page 1 of the PDF as a JPEG automatically
@@ -216,7 +228,10 @@ async function main() {
 
   const progress    = loadProgress();
   const uploadedSet = new Set(progress.uploaded);
-  console.log(`✓  ${uploadedSet.size} already uploaded — resuming`);
+  // Move previously-failed IDs back to the retry pool (clear the failed list)
+  const prevFailed = progress.failed.length;
+  progress.failed = [];
+  console.log(`✓  ${uploadedSet.size} already uploaded${prevFailed ? `, ${prevFailed} previously-failed questions will be retried` : ''} — resuming`);
 
   // Create Turso schema once
   if (!progress.schemaCreated) {
@@ -351,6 +366,7 @@ async function main() {
     saveProgress(progress);
 
     const total = rows.length;
+    await sleep(BATCH_DELAY);
     const pct = ((done / total) * 100).toFixed(1);
     process.stdout.write(`\r⟳  ${done.toLocaleString()} / ${total.toLocaleString()} (${pct}%) — ${failed} failed   `);
   }
