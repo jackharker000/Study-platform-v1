@@ -57,32 +57,73 @@ const BATCH_SIZE    = 10;   // parallel Cloudinary uploads per batch
 const TURSO_BATCH   = 100;  // rows per Turso insert
 const PROGRESS_FILE = path.join(__dirname, 'migration-progress.json');
 
-// ── Subject mapping ────────────────────────────────────────────────────────────
-const SUBJECT_MAP = {
-  'Biology-0610':             'igcse_bio',
-  'Chemistry-0620':           'igcse_chem',
-  'Physics-0625':             'igcse_phys',
-  'Mathematics-0580':         'igcse_maths',
-  'Computer Science-0478':    'igcse_cs',
-  'Economics-0455':           'igcse_econ',
-  'History-0470':             'igcse_hist',
-  'Geography-0460':           'igcse_geog',
-  'English Literature-0475':  'igcse_englit',
-  'English Language-0500':    'igcse_englang',
-  'English Language-0522':    'igcse_englang',
-  'Combined Science-0653':    'igcse_cscience',
-  'Biology-9700':             'as_bio',
-  'Chemistry-9701':           'as_chem',
-  'Further Mathematics-9231': 'as_fm',
-};
-
+// ── Subject ID / name / icon / color — auto-generated from DB ─────────────────
 function mapSubject(subject, level) {
-  const lvl = (level || '').toLowerCase();
-  if (subject === 'Physics-9702')            return lvl.includes('a2') ? 'a2_phys'  : 'as_phys';
-  if (subject === 'Mathematics-9709')        return lvl.includes('a2') ? 'a2_maths' : 'as_maths';
-  if (subject === 'Economics-9708')          return lvl.includes('a2') ? 'a2_econ'  : 'as_econ';
-  if (subject === 'Further Mathematics-9231') return lvl.includes('a2') ? 'a2_fm'   : 'as_fm';
-  return SUBJECT_MAP[subject] || null;
+  const code = subject.match(/-([A-Z0-9]+)$/i)?.[1];
+  if (!code) return null;
+  const lvl = level === 'IGCSE' ? 'igcse' : level === 'AS_Level' ? 'as' : level === 'A2_Level' ? 'a2' : null;
+  if (!lvl) return null;
+  return `${lvl}_${code.toLowerCase()}`;
+}
+
+function cleanName(subject) {
+  return subject.replace(/-[A-Z0-9]+$/i, '').replace(/\d+$/, '').trim()
+    .replace(/\bIct\b/g, 'ICT').replace(/\bIt\b/g, 'IT');
+}
+
+function subjectIcon(name) {
+  const n = name.toLowerCase();
+  if (n.includes('biology'))                        return '🔬';
+  if (n.includes('chemistry'))                      return '⚗️';
+  if (n.includes('physics') || n.includes('physical science')) return '⚡';
+  if (n.includes('math'))                           return '📐';
+  if (n.includes('computer') || n.includes('computing') || n.includes('ict') || n.includes('information tech')) return '💻';
+  if (n.includes('english') && n.includes('lit'))   return '📖';
+  if (n.includes('english') || n.includes('language')) return '✍️';
+  if (n.includes('history'))                        return '🏛️';
+  if (n.includes('geography'))                      return '🌍';
+  if (n.includes('economics'))                      return '📈';
+  if (n.includes('accounting'))                     return '🧾';
+  if (n.includes('business'))                       return '💼';
+  if (n.includes('psychology'))                     return '🧠';
+  if (n.includes('sociology'))                      return '👥';
+  if (n.includes('law'))                            return '⚖️';
+  if (n.includes('art') || n.includes('design'))    return '🎨';
+  if (n.includes('music'))                          return '🎵';
+  if (n.includes('drama'))                          return '🎭';
+  if (n.includes('physical ed') || n.includes('sport')) return '⚽';
+  if (n.includes('french'))                         return '🇫🇷';
+  if (n.includes('german'))                         return '🇩🇪';
+  if (n.includes('spanish'))                        return '🇪🇸';
+  if (n.includes('chinese'))                        return '🇨🇳';
+  if (n.includes('arabic'))                         return '🌙';
+  if (n.includes('travel') || n.includes('tourism')) return '✈️';
+  if (n.includes('food') || n.includes('nutrition')) return '🍎';
+  if (n.includes('media'))                          return '📺';
+  if (n.includes('thinking') || n.includes('general paper')) return '🧩';
+  if (n.includes('environment') || n.includes('marine') || n.includes('science')) return '🌿';
+  if (n.includes('religion') || n.includes('islam') || n.includes('divinity') || n.includes('hinduism')) return '🕌';
+  return '📋';
+}
+
+function subjectColor(name) {
+  const n = name.toLowerCase();
+  if (n.includes('biology') || n.includes('marine') || n.includes('environment')) return '#16a34a';
+  if (n.includes('chemistry'))                      return '#9333ea';
+  if (n.includes('physics') || n.includes('physical science')) return '#2563eb';
+  if (n.includes('math'))                           return '#0891b2';
+  if (n.includes('computer') || n.includes('computing') || n.includes('ict') || n.includes('information tech')) return '#06b6d4';
+  if (n.includes('history'))                        return '#b45309';
+  if (n.includes('geography'))                      return '#15803d';
+  if (n.includes('economics'))                      return '#0d9488';
+  if (n.includes('accounting') || n.includes('business')) return '#0284c7';
+  if (n.includes('english') || n.includes('literature')) return '#7c3aed';
+  if (n.includes('psychology') || n.includes('sociology')) return '#db2777';
+  if (n.includes('law'))                            return '#4b5563';
+  if (n.includes('art') || n.includes('drama') || n.includes('music') || n.includes('design')) return '#ea580c';
+  if (n.includes('french') || n.includes('german') || n.includes('spanish') || n.includes('chinese') || n.includes('arabic')) return '#6d28d9';
+  if (n.includes('religion') || n.includes('islam') || n.includes('divinity') || n.includes('hinduism')) return '#854d0e';
+  return '#6b7280';
 }
 
 // ── Turso HTTP helper ──────────────────────────────────────────────────────────
@@ -188,6 +229,10 @@ async function main() {
           ms_marks INTEGER DEFAULT 1, ms_text TEXT, ms_guidance TEXT,
           examiner_report TEXT, topics TEXT, pdf_url TEXT
         )` },
+      { sql: `CREATE TABLE IF NOT EXISTS subjects (
+          id TEXT PRIMARY KEY, name TEXT NOT NULL, level TEXT NOT NULL,
+          syllabus TEXT, icon TEXT, color TEXT, question_count INTEGER DEFAULT 0
+        )` },
       { sql: `CREATE INDEX IF NOT EXISTS idx_subject ON questions(subject_id)` },
       { sql: `CREATE INDEX IF NOT EXISTS idx_subject_year ON questions(subject_id, year)` },
     ]);
@@ -235,9 +280,13 @@ async function main() {
       const pdfBuf = fs.readFileSync(pdfPath);
       const pdfUrl = await uploadToCloudinary(row.id, pdfBuf);
       const topics = row.topic_list ? row.topic_list.split('||').filter(Boolean) : [];
+      const name   = cleanName(row.subject);
+      const lvl    = row.level === 'IGCSE' ? 'igcse' : row.level === 'AS_Level' ? 'as' : 'a2';
+      const code   = row.subject.match(/-([A-Z0-9]+)$/i)?.[1] || '';
 
       return {
         id: row.id, subject_id: subjectId,
+        _subjectMeta: { id: subjectId, name, level: lvl, syllabus: code, icon: subjectIcon(name), color: subjectColor(name) },
         year: row.year, session: row.session, session_name: row.session_name,
         paper: row.paper, question_num: row.question_num,
         is_mcq: row.is_mcq || 0, ms_marks: row.ms_marks || 1,
@@ -263,6 +312,26 @@ async function main() {
         progress.failed.push({ id: batch[j].id, error: results[j].reason?.message });
         failed++;
       }
+    }
+
+    // Upsert subject metadata (once per unique subject seen)
+    const seenSubjects = new Map();
+    for (const q of toInsert) {
+      if (q._subjectMeta && !seenSubjects.has(q._subjectMeta.id)) {
+        seenSubjects.set(q._subjectMeta.id, q._subjectMeta);
+      }
+    }
+    if (seenSubjects.size) {
+      await tursoExec([...seenSubjects.values()].map(s => ({
+        sql: `INSERT OR IGNORE INTO subjects (id,name,level,syllabus,icon,color,question_count)
+              VALUES (?,?,?,?,?,?,0)`,
+        args: [s.id, s.name, s.level, s.syllabus, s.icon, s.color],
+      })));
+      // Increment question counts
+      await tursoExec([...seenSubjects.keys()].map(id => ({
+        sql: `UPDATE subjects SET question_count = question_count + ? WHERE id = ?`,
+        args: [toInsert.filter(q => q.subject_id === id).length, id],
+      })));
     }
 
     for (let k = 0; k < toInsert.length; k += TURSO_BATCH) {

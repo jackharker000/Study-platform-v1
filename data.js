@@ -374,6 +374,26 @@ function toggleSubject(id) {
 const SUBJECT_MAP = Object.fromEntries(ALL_SUBJECTS.map(s => [s.id, s]));
 const LEVEL_MAP   = Object.fromEntries(LEVELS.map(l => [l.id, l]));
 
+/**
+ * Merge subjects fetched from Turso into ALL_SUBJECTS + SUBJECT_MAP.
+ * Existing subjects (same id) are not overwritten — their rich topic data is kept.
+ * New subjects are appended and made active by default.
+ */
+window.__mergeRemoteSubjects = function(remoteSubjects) {
+  let added = 0;
+  for (const s of remoteSubjects) {
+    if (!SUBJECT_MAP[s.id]) {
+      ALL_SUBJECTS.push(s);
+      SUBJECT_MAP[s.id] = s;
+      // Auto-activate new subjects
+      const ids = getActiveSubjectIds();
+      if (!ids.includes(s.id)) { ids.push(s.id); setActiveSubjectIds(ids); }
+      added++;
+    }
+  }
+  return added;
+};
+
 // SUBJECTS = active subjects only (backward compat)
 Object.defineProperty(window, 'SUBJECTS', {
   configurable: true,

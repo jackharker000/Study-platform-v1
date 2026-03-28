@@ -180,6 +180,35 @@ window.fetchQuestionCount = async function(subjectId) {
 };
 
 /**
+ * Fetch all available subjects from Turso subjects table.
+ * Returns array of {id, name, level, syllabus, icon, color, question_count}
+ * ready to merge into ALL_SUBJECTS.
+ */
+window.fetchSubjectList = async function() {
+  const cKey = 'subject_list';
+  const cached = _readCache(cKey);
+  if (cached) return cached;
+
+  const rows = await _tursoQuery(
+    'SELECT id, name, level, syllabus, icon, color, question_count FROM subjects ORDER BY level, name'
+  );
+  if (!rows) return [];
+
+  const subjects = rows.map(r => ({
+    id:            r.id,
+    name:          r.name,
+    level:         r.level,
+    syllabus:      r.syllabus || '',
+    icon:          r.icon || '📋',
+    color:         r.color || '#6b7280',
+    question_count: parseInt(r.question_count) || 0,
+    topics:        [],   // topics loaded on-demand per subject
+  }));
+  _writeCache(cKey, subjects);
+  return subjects;
+};
+
+/**
  * Returns true if Turso is configured (credentials filled in).
  */
 window.hasPastPaperDB = function() {

@@ -239,6 +239,14 @@
   }
 
   renderGrid();
+
+  // Load all subjects from Turso and merge into the grid
+  if (typeof fetchSubjectList === 'function' && typeof hasPastPaperDB === 'function' && hasPastPaperDB()) {
+    fetchSubjectList().then(remote => {
+      const added = window.__mergeRemoteSubjects?.(remote) || 0;
+      if (added > 0) renderGrid();
+    });
+  }
 </script>
 </body>
 </html>
