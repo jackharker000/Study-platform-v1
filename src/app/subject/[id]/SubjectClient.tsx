@@ -1,9 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { SUBJECTS, SUBJECT_MAP } from '@/data/subjects'
-import { QUESTIONS, getTopicsForSubject, getPapersForSubject, filterQuestions } from '@/data/questions'
+import { SUBJECT_MAP } from '@/data/subjects'
 import { Button, SectionLabel, ChipRow, Chip, Select } from '@/components/ui'
 import type { SessionMode, SessionFilters } from '@/types'
 import { createSession } from '@/lib/sessionStore'
@@ -19,6 +18,9 @@ const MODES: { id: SessionMode; name: string; desc: string }[] = [
 
 const COUNTS = [5, 10, 15, 20]
 
+// Known Cambridge exam sessions
+const SESSION_LABELS: Record<string, string> = { s: 'Summer', w: 'Winter', m: 'March' }
+
 export default function SubjectPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
@@ -26,28 +28,62 @@ export default function SubjectPage() {
 
   const [mode, setMode] = useState<SessionMode>('practice')
   const [filters, setFilters] = useState<SessionFilters>({
-    paper: 'all', topic: 'all', difficulty: 'all', questionType: 'all',
+    paper: 'all', topic: 'all', difficulty: 'all', questionType: 'all', year: 'all',
   })
   const [count, setCount] = useState(10)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Dynamic filter options loaded from cloud
+  const [papers, setPapers] = useState<string[]>([])
+  const [topics, setTopics] = useState<string[]>([])
+  const [years, setYears] = useState<string[]>([])
+  const [poolCount, setPoolCount] = useState<number | null>(null)
+
+  // Load available filter values from the API when the subject changes
+  useEffect(() => {
+    if (!id) return
+    const base = `/api/questions?subjectId=${encodeURIComponent(id)}`
+    Promise.all([
+      fetch(`${base}&distinct=paper`).then(r => r.json()).catch(() => []),
+      fetch(`${base}&distinct=topic`).then(r => r.json()).catch(() => []),
+      fetch(`${base}&distinct=year`).then(r => r.json()).catch(() => []),
+    ]).then(([p, t, y]) => {
+      setPapers(Array.isArray(p) ? (p as string[]).filter(Boolean) : [])
+      setTopics(Array.isArray(t) ? (t as string[]).filter(Boolean) : [])
+      setYears(Array.isArray(y) ? (y as (string | number)[]).map(String).filter(Boolean) : [])
+    })
+  }, [id])
+
+  // Update available question count when filters change
+  useEffect(() => {
+    if (!id) return
+    const qs = new URLSearchParams({ subjectId: id, countOnly: 'true' })
+    if (filters.paper !== 'all') qs.set('paper', filters.paper)
+    if (filters.topic !== 'all') qs.set('topic', filters.topic)
+    if (filters.year && filters.year !== 'all') qs.set('year', filters.year)
+    if (filters.questionType !== 'all') qs.set('isMcq', filters.questionType === 'mcq' ? '1' : '0')
+    fetch(`/api/questions?${qs}`)
+      .then(r => r.json())
+      .then((d: { count: number }) => setPoolCount(d.count))
+      .catch(() => setPoolCount(null))
+  }, [id, filters])
+
   if (!subject) {
     return (
       <div style={{ maxWidth: '860px', margin: '0 auto', padding: '40px 16px', textAlign: 'center', color: 'var(--text-dim)' }}>
-        Subject not found. <button onClick={() => router.push('/')} style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}>Go home</button>
+        Subject not found.{' '}
+        <button onClick={() => router.push('/')} style={{ color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
+          Go home
+        </button>
       </div>
     )
   }
 
-  const topics = getTopicsForSubject(id)
-  const papers = getPapersForSubject(id)
-  const pool = filterQuestions(id, filters)
-
-  function handleStart() {
+  async function handleStart() {
     setLoading(true)
     setError('')
-    const result = createSession({ subject: id, mode, filters, count })
+    const result = await createSession({ subject: id, mode, filters, count })
     if ('error' in result) {
       setError(result.error)
       setLoading(false)
@@ -58,6 +94,9 @@ export default function SubjectPage() {
 
   const pf = (key: keyof SessionFilters, val: string) =>
     setFilters(f => ({ ...f, [key]: val }))
+
+  const availableCount = poolCount ?? 0
+  const sessionCount = mode === 'flashcard' ? availableCount : Math.min(availableCount, count)
 
   return (
     <div style={{ maxWidth: '860px', margin: '0 auto', padding: '20px 16px 100px' }}>
@@ -86,26 +125,29 @@ export default function SubjectPage() {
       <div className="fade-up stagger-2">
         <SectionLabel>Filters</SectionLabel>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+          {/* Paper */}
+          <Select value={filters.paper} onChange={v => pf('paper', v)}>
+            <option value="all">All Papers</option>
+            {papers.map(p => <option key={p} value={p}>Paper {p}</option>)}
+          </Select>
+
+          {/* Year */}
+          <Select value={filters.year ?? 'all'} onChange={v => pf('year', v)}>
+            <option value="all">All Years</option>
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </Select>
+
+          {/* Topic */}
           <Select value={filters.topic} onChange={v => pf('topic', v)}>
             <option value="all">All Topics</option>
             {topics.map(t => <option key={t} value={t}>{t}</option>)}
           </Select>
-          <Select value={filters.paper} onChange={v => pf('paper', v)}>
-            <option value="all">All Papers</option>
-            {papers.map(p => <option key={p} value={p}>{p}</option>)}
-          </Select>
-          <Select value={filters.difficulty} onChange={v => pf('difficulty', v)}>
-            <option value="all">All Difficulties</option>
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
-          </Select>
+
+          {/* Question type */}
           <Select value={filters.questionType} onChange={v => pf('questionType', v)}>
             <option value="all">All Types</option>
             <option value="mcq">MCQ</option>
-            <option value="short-answer">Short Answer</option>
-            <option value="calculation">Calculation</option>
-            <option value="essay">Essay</option>
+            <option value="structured">Structured</option>
           </Select>
         </div>
       </div>
@@ -133,13 +175,15 @@ export default function SubjectPage() {
       >
         <div>
           <div style={{ fontSize: '.85rem', color: 'var(--text-bright)', fontWeight: 600 }}>
-            {pool.length} questions available
+            {poolCount === null ? '…' : availableCount.toLocaleString()} questions available
           </div>
           <div style={{ fontSize: '.75rem', color: 'var(--text-dim)' }}>
-            {mode === 'flashcard' ? 'Study all cards' : `Up to ${Math.min(pool.length, count)} questions`}
+            {mode === 'flashcard'
+              ? `Study all ${availableCount > 0 ? availableCount.toLocaleString() : ''} cards`
+              : `Up to ${sessionCount} questions`}
           </div>
         </div>
-        <Button onClick={handleStart} disabled={pool.length === 0 || loading}>
+        <Button onClick={() => void handleStart()} disabled={availableCount === 0 || loading}>
           {loading ? 'Starting…' : mode === 'flashcard' ? 'Start Flashcards →' : 'Start Quiz →'}
         </Button>
       </div>

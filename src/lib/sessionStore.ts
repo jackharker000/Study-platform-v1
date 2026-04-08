@@ -1,14 +1,13 @@
 /**
  * Client-side (localStorage) session management.
- * Replaces the server-side Prisma/API layer for GitHub Pages static hosting.
+ * Sessions now use CloudQuestion (fetched from /api/questions).
+ * Legacy Question support is retained for local-dev fallback.
  */
 
 import type {
-  Question, SessionMode, SessionFilters,
+  CloudQuestion, SessionMode, SessionFilters,
   GradeResult, DashboardData, AnswerRecord,
 } from '@/types'
-import { filterQuestions, shuffleArray, QUESTION_MAP } from '@/data/questions'
-import { gradeAnswer } from '@/lib/grading'
 
 // ─── Stored shapes ────────────────────────────────────────────────
 
@@ -37,7 +36,7 @@ export interface StoredSession {
   mode: SessionMode
   filters: SessionFilters
   questionIds: string[]
-  questions: Question[]
+  questions: CloudQuestion[]
   currentIdx: number
   status: 'active' | 'completed'
   answers: StoredAnswer[]
@@ -76,27 +75,44 @@ function writeSession(session: StoredSession) {
 
 // ─── Public API ───────────────────────────────────────────────────
 
-export function createSession(params: {
+export async function createSession(params: {
   subject: string
   mode: SessionMode
   filters: SessionFilters
   count: number
-}): StoredSession | { error: string } {
+}): Promise<StoredSession | { error: string }> {
   const { subject, mode, filters, count } = params
-  const pool = filterQuestions(subject, filters)
-  if (pool.length === 0) return { error: 'No questions match the selected filters.' }
 
-  const selected = shuffleArray(
-    mode === 'flashcard' ? [...pool] : [...pool]
-  ).slice(0, mode === 'flashcard' ? pool.length : count)
+  // Build query params for /api/questions
+  const qs = new URLSearchParams({ subjectId: subject, shuffle: 'true' })
+  if (filters.paper && filters.paper !== 'all') qs.set('paper', filters.paper)
+  if (filters.topic && filters.topic !== 'all') qs.set('topic', filters.topic)
+  if (filters.year && filters.year !== 'all') qs.set('year', filters.year)
+  if (filters.questionType && filters.questionType !== 'all') {
+    qs.set('isMcq', filters.questionType === 'mcq' ? '1' : '0')
+  }
+  // For flashcard mode fetch up to 100; otherwise use requested count
+  qs.set('limit', String(mode === 'flashcard' ? 100 : count))
+
+  let questions: CloudQuestion[]
+  try {
+    const res = await fetch(`/api/questions?${qs.toString()}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    questions = await res.json() as CloudQuestion[]
+  } catch (err) {
+    console.error('[createSession] fetch failed', err)
+    return { error: 'Failed to load questions. Please check your connection.' }
+  }
+
+  if (!questions.length) return { error: 'No questions match the selected filters.' }
 
   const session: StoredSession = {
     id: uid(),
     subject,
     mode,
     filters,
-    questionIds: selected.map(q => q.id),
-    questions: selected,
+    questionIds: questions.map(q => q.id),
+    questions,
     currentIdx: 0,
     status: 'active',
     answers: [],
@@ -112,37 +128,38 @@ export function getSession(id: string): StoredSession | null {
   return readSession(id)
 }
 
-export function submitAnswer(params: {
+/**
+ * Record a pre-graded answer (grading happens in the quiz page via /api/grade).
+ */
+export function recordAnswer(params: {
   sessionId: string
   questionId: string
+  subject: string
+  topic: string
   userAnswer: string
+  gradeResult: GradeResult
   confidence?: string
   timeMs?: number
-}): { gradeResult: GradeResult; answer: StoredAnswer } | { error: string } {
+}): { answer: StoredAnswer } | { error: string } {
   const session = readSession(params.sessionId)
   if (!session) return { error: 'Session not found.' }
-
-  const question = QUESTION_MAP[params.questionId]
-  if (!question) return { error: 'Question not found.' }
-
-  const gradeResult = gradeAnswer(question, params.userAnswer)
 
   const answer: StoredAnswer = {
     id: uid(),
     sessionId: params.sessionId,
     questionId: params.questionId,
-    subject: question.subject,
-    topic: question.topic,
-    difficulty: question.difficulty,
-    qType: question.questionType,
+    subject: params.subject,
+    topic: params.topic,
+    difficulty: 'unknown',
+    qType: 'cloud',
     userAnswer: params.userAnswer,
-    correct: gradeResult.correct,
-    score: gradeResult.score,
-    maxScore: gradeResult.maxScore,
+    correct: params.gradeResult.correct,
+    score: params.gradeResult.score,
+    maxScore: params.gradeResult.maxScore,
     confidence: params.confidence ?? null,
     timeMs: params.timeMs ?? null,
-    gradingType: gradeResult.gradingType,
-    gradeResult,
+    gradingType: params.gradeResult.gradingType,
+    gradeResult: params.gradeResult,
     createdAt: new Date().toISOString(),
   }
 
@@ -152,7 +169,7 @@ export function submitAnswer(params: {
   session.status = nextIdx >= session.questionIds.length ? 'completed' : 'active'
   writeSession(session)
 
-  return { gradeResult, answer }
+  return { answer }
 }
 
 export function getAllSessions(): StoredSession[] {
@@ -209,7 +226,7 @@ export function computeDashboard(): DashboardData {
     .sort((a, b) => a.pct - b.pct)
     .slice(0, 6)
 
-  // Mistakes = questions answered incorrectly at least once, never corrected
+  // Mistakes = questions never answered correctly
   const mistakeCount = Object.values(
     allAnswers.reduce((acc, a) => {
       if (!acc[a.questionId]) acc[a.questionId] = { ever_correct: false }
@@ -218,7 +235,7 @@ export function computeDashboard(): DashboardData {
     }, {} as Record<string, { ever_correct: boolean }>)
   ).filter(v => !v.ever_correct).length
 
-  // Recent answers (as AnswerRecord for compatibility)
+  // Recent answers
   const recentAnswers: AnswerRecord[] = allAnswers
     .slice(-20)
     .reverse()

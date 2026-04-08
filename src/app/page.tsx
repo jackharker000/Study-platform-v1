@@ -1,12 +1,23 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { SUBJECTS } from '@/data/subjects'
-import { QUESTIONS } from '@/data/questions'
 import { NavTabs, SectionLabel } from '@/components/ui'
+import type { SubjectInfo } from '@/app/api/subjects/route'
 
 export default function HomePage() {
   const router = useRouter()
+  const [subjects, setSubjects] = useState<SubjectInfo[]>(() =>
+    SUBJECTS.map(s => ({ ...s, count: 0 }))
+  )
+
+  useEffect(() => {
+    fetch('/api/subjects')
+      .then(r => r.json())
+      .then((data: SubjectInfo[]) => setSubjects(data))
+      .catch(() => { /* keep fallback counts */ })
+  }, [])
 
   return (
     <div style={{ maxWidth: '860px', margin: '0 auto', padding: '20px 16px 100px' }}>
@@ -66,17 +77,14 @@ export default function HomePage() {
           marginBottom: '24px',
         }}
       >
-        {SUBJECTS.map(s => {
-          const count = QUESTIONS.filter(q => q.subject === s.id).length
-          return (
-            <SubjectCard
-              key={s.id}
-              subject={s}
-              count={count}
-              onClick={() => router.push(`/subject/${s.id}`)}
-            />
-          )
-        })}
+        {subjects.map(s => (
+          <SubjectCard
+            key={s.id}
+            subject={s}
+            count={s.count}
+            onClick={() => router.push(`/subject/${s.id}`)}
+          />
+        ))}
       </div>
     </div>
   )
@@ -87,7 +95,7 @@ function SubjectCard({
   count,
   onClick,
 }: {
-  subject: (typeof SUBJECTS)[0]
+  subject: SubjectInfo
   count: number
   onClick: () => void
 }) {
@@ -127,7 +135,7 @@ function SubjectCard({
         {subject.icon} {subject.name}
       </div>
       <div style={{ fontSize: '.75rem', color: 'var(--text-dim)' }}>
-        {subject.level} · {subject.syllabus} · {count} questions
+        {subject.level} · {subject.syllabus} · {count > 0 ? count.toLocaleString() : '…'} questions
       </div>
     </div>
   )

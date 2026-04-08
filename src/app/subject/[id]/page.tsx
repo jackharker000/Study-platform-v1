@@ -1,10 +1,6 @@
-import { SUBJECTS } from '@/data/subjects'
 import SubjectClient from './SubjectClient'
 
-export function generateStaticParams() {
-  return SUBJECTS.map(s => ({ id: s.id }))
-}
-
+// No generateStaticParams needed — dynamic routing works natively with Vercel SSR
 export default function SubjectPage() {
   return <SubjectClient />
 }

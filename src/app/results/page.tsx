@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import type { Question } from '@/types'
+import type { CloudQuestion } from '@/types'
 import { Button, Card, StatCard, BarChart, SectionLabel } from '@/components/ui'
 import { getSession } from '@/lib/sessionStore'
 
@@ -17,7 +17,7 @@ interface AnswerRow {
 
 interface ResultsData {
   session: { mode: string; subject: string | null }
-  questions: Question[]
+  questions: CloudQuestion[]
   answers: AnswerRow[]
 }
 
@@ -109,7 +109,9 @@ function ResultsInner() {
                   {a.correct ? '✓' : '✗'}
                 </span>
                 <span style={{ color: 'var(--text-dim)', marginRight: '6px' }}>{i + 1}.</span>
-                {q.prompt.substring(0, 90)}{q.prompt.length > 90 ? '…' : ''}
+                <span style={{ color: 'var(--text-dim)' }}>
+                  {q.subject} · Paper {q.paper} · Q{q.questionNum} ({q.year})
+                </span>
               </div>
             )
           })}

@@ -2,17 +2,17 @@
 
 import { useEffect, useState, useCallback, useRef, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import type { Question, GradeResult, SessionMode } from '@/types'
+import type { CloudQuestion, GradeResult, SessionMode } from '@/types'
 import { Button, Badge, ProgressBar } from '@/components/ui'
 import { generateExamTip } from '@/lib/grading'
-import { getSession, submitAnswer as storeSubmitAnswer } from '@/lib/sessionStore'
+import { getSession, recordAnswer } from '@/lib/sessionStore'
 
 // ─── Types ────────────────────────────────────────────────────────
 
 interface QuizState {
   sessionId: string
   mode: SessionMode
-  questions: Question[]
+  questions: CloudQuestion[]
   currentIdx: number
   answers: Record<number, AnsweredQuestion>
   status: 'loading' | 'active' | 'completed'
@@ -26,7 +26,7 @@ interface AnsweredQuestion {
 }
 
 interface PendingInput {
-  mcqSelected: number | null
+  mcqSelected: string | null  // 'A'|'B'|'C'|'D' for cloud MCQ
   textValue: string
   confidence: string | null
   hintShown: boolean
@@ -72,33 +72,63 @@ function QuizInner() {
   // Submit answer
   const submitAnswer = useCallback(async () => {
     if (!quiz || !currentQ || isAnswered || submitting) return
-    const userAnswer =
-      currentQ.questionType === 'mcq'
-        ? String(pending.mcqSelected ?? '')
-        : pending.textValue
 
-    if (currentQ.questionType === 'mcq' && pending.mcqSelected === null) return
+    const isMcq = currentQ.isMcq
+    const userAnswer = isMcq ? (pending.mcqSelected ?? '') : pending.textValue
+    if (isMcq && !pending.mcqSelected) return
 
     setSubmitting(true)
     try {
-      const result = storeSubmitAnswer({
+      let gradeResult: GradeResult
+
+      if (isMcq) {
+        // Client-side MCQ grading via /api/grade
+        const res = await fetch('/api/grade', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questionId: currentQ.id,
+            userAnswer,
+            isMcq: true,
+            msText: currentQ.msText,
+            msMarks: currentQ.msMarks,
+          }),
+        })
+        gradeResult = await res.json() as GradeResult
+      } else {
+        // Non-MCQ: AI grading via /api/grade
+        const res = await fetch('/api/grade', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questionId: currentQ.id,
+            userAnswer,
+            isMcq: false,
+            msText: currentQ.msText,
+            msMarks: currentQ.msMarks,
+            imageUrl: currentQ.imageUrl,
+          }),
+        })
+        gradeResult = await res.json() as GradeResult
+      }
+
+      const timeMs = Date.now() - pending.startTime
+      recordAnswer({
         sessionId: quiz.sessionId,
         questionId: currentQ.id,
+        subject: currentQ.subject,
+        topic: currentQ.topics[0] ?? 'General',
         userAnswer,
+        gradeResult,
         confidence: pending.confidence ?? undefined,
-        timeMs: Date.now() - pending.startTime,
+        timeMs,
       })
-      if ('error' in result) return
+
       setQuiz(q => q ? {
         ...q,
         answers: {
           ...q.answers,
-          [q.currentIdx]: {
-            userAnswer,
-            gradeResult: result.gradeResult,
-            confidence: pending.confidence ?? undefined,
-            timeMs: Date.now() - pending.startTime,
-          },
+          [q.currentIdx]: { userAnswer, gradeResult, confidence: pending.confidence ?? undefined, timeMs },
         },
       } : q)
     } finally {
@@ -130,8 +160,8 @@ function QuizInner() {
         if (e.key === 'ArrowLeft') goPrev()
         return
       }
-      if (currentQ.questionType === 'mcq' && !isAnswered && ['1','2','3','4'].includes(e.key)) {
-        setPending(p => ({ ...p, mcqSelected: parseInt(e.key) - 1 }))
+      if (currentQ.isMcq && !isAnswered && ['a','b','c','d'].includes(e.key.toLowerCase())) {
+        setPending(p => ({ ...p, mcqSelected: e.key.toUpperCase() }))
       }
       if (e.key === 'Enter' && document.activeElement?.tagName !== 'TEXTAREA') {
         if (!isAnswered) { e.preventDefault(); void submitAnswer() }
@@ -186,36 +216,46 @@ function QuizInner() {
           padding: '28px',
         }}
       >
+        {/* Question metadata */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
-          <Badge label={currentQ.difficulty} kind={currentQ.difficulty} />
-          <Badge label={currentQ.questionType} kind="type" />
-          <Badge label={currentQ.topic} kind="topic" />
-          {currentQ.marks > 1 && <Badge label={`${currentQ.marks} marks`} kind="marks" />}
+          <Badge label={currentQ.isMcq ? 'mcq' : 'structured'} kind="type" />
+          {currentQ.topics[0] && <Badge label={currentQ.topics[0]} kind="topic" />}
+          {currentQ.msMarks != null && currentQ.msMarks > 1 && (
+            <Badge label={`${currentQ.msMarks} marks`} kind="marks" />
+          )}
         </div>
 
-        <div style={{ fontSize: '.72rem', color: 'var(--text-dim)', marginBottom: '4px' }}>
-          {currentQ.paper} · {currentQ.syllabusRef ?? ''}
+        <div style={{ fontSize: '.72rem', color: 'var(--text-dim)', marginBottom: '12px' }}>
+          {currentQ.subject} · Paper {currentQ.paper} · Q{currentQ.questionNum} · {currentQ.year}
         </div>
 
-        <div
-          style={{
-            fontFamily: "'Palatino Linotype', Georgia, serif",
-            fontSize: '1.12rem',
-            color: 'var(--text-bright)',
-            lineHeight: 1.65,
-            marginBottom: '22px',
-            fontWeight: 500,
-          }}
-        >
-          {currentQ.prompt}
-        </div>
+        {/* Question image from Cloudinary */}
+        {currentQ.imageUrl ? (
+          <div style={{ marginBottom: '22px' }}>
+            <img
+              src={currentQ.imageUrl}
+              alt={`Question ${currentQ.questionNum}`}
+              style={{
+                maxWidth: '100%',
+                borderRadius: 'var(--radius)',
+                border: '1px solid var(--border)',
+                display: 'block',
+              }}
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <div style={{ fontSize: '.84rem', color: 'var(--text-dim)', marginBottom: '22px', fontStyle: 'italic' }}>
+            Question image unavailable
+          </div>
+        )}
 
-        {currentQ.questionType === 'mcq' ? (
-          <McqInput
-            question={currentQ}
-            selected={isAnswered ? parseInt(currentAnswer.userAnswer) : pending.mcqSelected}
+        {currentQ.isMcq ? (
+          <CloudMcqInput
+            selected={isAnswered ? currentAnswer.userAnswer : pending.mcqSelected}
             locked={isAnswered}
-            onSelect={i => !isAnswered && setPending(p => ({ ...p, mcqSelected: i }))}
+            onSelect={letter => !isAnswered && setPending(p => ({ ...p, mcqSelected: letter }))}
+            correctLetter={isAnswered ? parseMcqLetter(currentQ.msText) : null}
           />
         ) : (
           <TextInput
@@ -234,12 +274,12 @@ function QuizInner() {
           />
         )}
 
-        {quiz.mode === 'tutor' && !isAnswered && (
-          <TutorHint question={currentQ} shown={pending.hintShown} onShow={() => setPending(p => ({ ...p, hintShown: true }))} />
+        {quiz.mode === 'tutor' && !isAnswered && currentQ.msText && (
+          <TutorHint msText={currentQ.msText} shown={pending.hintShown} onShow={() => setPending(p => ({ ...p, hintShown: true }))} />
         )}
 
         {isAnswered && quiz.mode !== 'exam' && (
-          <FeedbackPanel question={currentQ} answer={currentAnswer} />
+          <CloudFeedbackPanel question={currentQ} answer={currentAnswer} />
         )}
       </div>
 
@@ -249,7 +289,7 @@ function QuizInner() {
             <Button variant="ghost" size="sm" onClick={goNext}>Skip</Button>
             <Button
               size="sm"
-              disabled={submitting || (currentQ.questionType === 'mcq' && pending.mcqSelected === null)}
+              disabled={submitting || (currentQ.isMcq && pending.mcqSelected === null)}
               onClick={() => void submitAnswer()}
             >
               {submitting ? 'Grading…' : 'Submit'}
@@ -268,7 +308,7 @@ function QuizInner() {
       </div>
 
       <div style={{ fontSize: '.68rem', color: 'var(--text-dim)', textAlign: 'center', marginTop: '10px' }}>
-        Press <kbd style={{ background: 'var(--border)', borderRadius: '3px', padding: '1px 6px', fontFamily: 'monospace', fontSize: '.65rem' }}>1</kbd>–<kbd style={{ background: 'var(--border)', borderRadius: '3px', padding: '1px 6px', fontFamily: 'monospace', fontSize: '.65rem' }}>4</kbd> for MCQ
+        Press <kbd style={{ background: 'var(--border)', borderRadius: '3px', padding: '1px 6px', fontFamily: 'monospace', fontSize: '.65rem' }}>A</kbd>–<kbd style={{ background: 'var(--border)', borderRadius: '3px', padding: '1px 6px', fontFamily: 'monospace', fontSize: '.65rem' }}>D</kbd> for MCQ
         {' · '}<kbd style={{ background: 'var(--border)', borderRadius: '3px', padding: '1px 6px', fontFamily: 'monospace', fontSize: '.65rem' }}>Enter</kbd> to submit / next
         {' · '}<kbd style={{ background: 'var(--border)', borderRadius: '3px', padding: '1px 6px', fontFamily: 'monospace', fontSize: '.65rem' }}>→</kbd> for next
       </div>
@@ -284,64 +324,56 @@ export default function QuizPage() {
   )
 }
 
-// ─── Sub-components (unchanged) ───────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────
 
-function McqInput({
-  question, selected, locked, onSelect,
+// Parses the correct MCQ answer letter (A/B/C/D) from mark scheme text
+function parseMcqLetter(msText: string | null): string | null {
+  if (!msText) return null
+  const match = msText.trim().toUpperCase().match(/\b([ABCD])\b/)
+  return match ? match[1] : null
+}
+
+function CloudMcqInput({
+  selected, locked, onSelect, correctLetter,
 }: {
-  question: Question
-  selected: number | null
+  selected: string | null
   locked: boolean
-  onSelect: (i: number) => void
+  onSelect: (letter: string) => void
+  correctLetter: string | null
 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {question.options!.map((opt, i) => {
+    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
+      {(['A', 'B', 'C', 'D'] as const).map(letter => {
         let borderColor = 'var(--border)'
         let bg = 'var(--bg)'
         let color = 'var(--text)'
-        let letterBg = 'var(--border)'
-        let letterColor = 'var(--text-dim)'
 
         if (locked) {
-          if (i === question.correctAnswer) {
+          if (letter === correctLetter) {
             borderColor = 'var(--green)'; bg = 'var(--green-bg)'; color = 'var(--green)'
-            letterBg = 'var(--green)'; letterColor = '#fff'
-          } else if (i === selected) {
+          } else if (letter === selected) {
             borderColor = 'var(--red)'; bg = 'var(--red-bg)'; color = 'var(--red)'
-            letterBg = 'var(--red)'; letterColor = '#fff'
           }
-        } else if (i === selected) {
+        } else if (letter === selected) {
           borderColor = 'var(--accent)'; bg = 'var(--accent-glow)'
         }
 
         return (
           <button
-            key={i}
-            onClick={() => onSelect(i)}
+            key={letter}
+            onClick={() => onSelect(letter)}
             disabled={locked}
             style={{
-              display: 'flex', alignItems: 'center', gap: '14px',
-              padding: '14px 16px',
-              background: bg, border: `1px solid ${borderColor}`,
+              width: '60px', height: '60px',
+              border: `1px solid ${borderColor}`, background: bg,
               borderRadius: 'var(--radius)',
               cursor: locked ? 'default' : 'pointer',
               transition: 'var(--transition)',
-              fontSize: '.92rem', color, width: '100%',
-              textAlign: 'left', fontFamily: 'inherit',
+              fontSize: '1.2rem', fontWeight: 700, color,
+              fontFamily: 'inherit',
             }}
           >
-            <span
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: '30px', height: '30px', borderRadius: '50%',
-                background: letterBg, fontSize: '.78rem', fontWeight: 700,
-                flexShrink: 0, color: letterColor,
-              }}
-            >
-              {['A','B','C','D'][i]}
-            </span>
-            <span>{opt}</span>
+            {letter}
           </button>
         )
       })}
@@ -352,17 +384,17 @@ function McqInput({
 function TextInput({
   question, value, disabled, onChange, textareaRef,
 }: {
-  question: Question
+  question: CloudQuestion
   value: string
   disabled: boolean
   onChange: (v: string) => void
   textareaRef: React.RefObject<HTMLTextAreaElement | null>
 }) {
-  const rows = question.questionType === 'essay' ? 10 : question.questionType === 'short-answer' ? 4 : 2
+  const rows = question.msMarks != null && question.msMarks >= 6 ? 8 : 4
   return (
     <div>
       <div style={{ fontSize: '.75rem', color: 'var(--text-dim)', marginBottom: '6px' }}>
-        Your answer{question.questionType === 'calculation' ? ' (show working)' : ''}:
+        Your answer{question.msMarks != null ? ` (${question.msMarks} marks)` : ''}:
       </div>
       <textarea
         ref={textareaRef}
@@ -415,7 +447,7 @@ function ConfidenceRow({ value, onChange }: { value: string | null; onChange: (c
   )
 }
 
-function TutorHint({ question, shown, onShow }: { question: Question; shown: boolean; onShow: () => void }) {
+function TutorHint({ msText, shown, onShow }: { msText: string; shown: boolean; onShow: () => void }) {
   if (!shown) {
     return (
       <button
@@ -431,7 +463,8 @@ function TutorHint({ question, shown, onShow }: { question: Question; shown: boo
       </button>
     )
   }
-  const step = question.teachingSteps?.[0] ?? question.commonMistakes?.[0] ?? 'Think about the key formula or definition.'
+  // Show first line of mark scheme as hint
+  const hint = msText.split('\n')[0]?.trim() ?? 'Refer to the mark scheme after answering.'
   return (
     <div style={{
       background: 'var(--amber-bg)', border: '1px solid rgba(245,158,11,.3)',
@@ -440,130 +473,99 @@ function TutorHint({ question, shown, onShow }: { question: Question; shown: boo
       <div style={{ fontSize: '.7rem', fontWeight: 600, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '4px' }}>
         💡 Hint
       </div>
-      <div style={{ fontSize: '.84rem', color: 'var(--text)', lineHeight: 1.6 }}>{step}</div>
+      <div style={{ fontSize: '.84rem', color: 'var(--text)', lineHeight: 1.6 }}>{hint}</div>
     </div>
   )
 }
 
-function FeedbackPanel({ question, answer }: { question: Question; answer: AnsweredQuestion }) {
+function CloudFeedbackPanel({ question, answer }: { question: CloudQuestion; answer: AnsweredQuestion }) {
   const { gradeResult } = answer
   const isCorrect = gradeResult.correct === true
   const isPartial = gradeResult.status === 'partial'
-  const isEssay = question.questionType === 'essay' || question.questionType === 'short-answer'
+  const isUngraded = gradeResult.status === 'ungraded'
 
-  const headerBg = isCorrect ? 'var(--green-bg)' : isPartial ? 'var(--amber-bg)' : 'var(--red-bg)'
-  const headerColor = isCorrect ? 'var(--green)' : isPartial ? 'var(--amber)' : 'var(--red)'
-  const headerText = isCorrect ? '✓ Correct' : isPartial ? `◑ Partial — ${gradeResult.score}/${gradeResult.maxScore}` : '✗ Incorrect'
+  const headerBg = isCorrect ? 'var(--green-bg)' : isPartial ? 'var(--amber-bg)' : isUngraded ? 'var(--bg-card)' : 'var(--red-bg)'
+  const headerColor = isCorrect ? 'var(--green)' : isPartial ? 'var(--amber)' : isUngraded ? 'var(--text-dim)' : 'var(--red)'
+  const headerText = isCorrect ? '✓ Correct' : isPartial ? `◑ Partial — ${gradeResult.score}/${gradeResult.maxScore}` : isUngraded ? `Ungraded` : '✗ Incorrect'
+
+  const correctLetter = question.isMcq ? parseMcqLetter(question.msText) : null
 
   return (
     <div style={{ marginTop: '20px' }} className="fade-in">
-      {!isEssay && (
-        <div style={{
-          padding: '14px 18px',
-          borderRadius: 'var(--radius) var(--radius) 0 0',
-          fontWeight: 700, fontSize: '.92rem',
-          background: headerBg,
-          border: `1px solid ${headerColor}40`,
-          color: headerColor,
-        }}>
-          {headerText}
-          {!isCorrect && question.questionType === 'mcq' && question.options && (
-            <span style={{ fontWeight: 400, marginLeft: '8px' }}>
-              — Answer: {question.options[question.correctAnswer as number]}
-            </span>
-          )}
-        </div>
-      )}
+      {/* Result header */}
+      <div style={{
+        padding: '14px 18px',
+        borderRadius: 'var(--radius) var(--radius) 0 0',
+        fontWeight: 700, fontSize: '.92rem',
+        background: headerBg,
+        border: `1px solid ${headerColor}40`,
+        color: headerColor,
+      }}>
+        {headerText}
+        {!isCorrect && question.isMcq && correctLetter && (
+          <span style={{ fontWeight: 400, marginLeft: '8px' }}>— Answer: {correctLetter}</span>
+        )}
+      </div>
 
       <div style={{
         padding: '18px',
         background: 'var(--bg)',
         border: '1px solid var(--border)',
-        borderTop: isEssay ? '1px solid var(--border)' : 'none',
-        borderRadius: isEssay ? 'var(--radius)' : '0 0 var(--radius) var(--radius)',
+        borderTop: 'none',
+        borderRadius: '0 0 var(--radius) var(--radius)',
       }}>
-        <FeedbackSection title="Explanation" text={question.explanation} />
-
-        {question.teachingSteps && question.teachingSteps.length > 0 && (
+        {/* AI feedback (non-MCQ) */}
+        {gradeResult.feedback && (
           <div style={{ marginBottom: '14px' }}>
             <div style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '5px' }}>
-              Step by Step
+              Feedback
             </div>
-            {question.teachingSteps.map((s, i) => (
-              <div key={i} style={{ fontSize: '.82rem', color: 'var(--text)', padding: '6px 0 6px 16px', borderLeft: '2px solid var(--border)', marginBottom: '4px' }}>{s}</div>
+            <div style={{ fontSize: '.85rem', lineHeight: 1.65, color: 'var(--text)' }}>{gradeResult.feedback}</div>
+          </div>
+        )}
+
+        {/* Strengths */}
+        {gradeResult.strengths && gradeResult.strengths.length > 0 && (
+          <div style={{ marginBottom: '12px' }}>
+            <div style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '4px' }}>Strengths</div>
+            {gradeResult.strengths.map((s, i) => (
+              <div key={i} style={{ fontSize: '.84rem', color: 'var(--text)', padding: '2px 0' }}>✓ {s}</div>
             ))}
           </div>
         )}
 
-        {question.markScheme && question.markScheme.length > 0 && (
-          <div style={{ background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '16px', marginBottom: '12px' }}>
+        {/* Missing points */}
+        {gradeResult.missingPoints && gradeResult.missingPoints.length > 0 && (
+          <div style={{ marginBottom: '12px' }}>
+            <div style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '4px' }}>To improve</div>
+            {gradeResult.missingPoints.map((s, i) => (
+              <div key={i} style={{ fontSize: '.84rem', color: 'var(--text)', padding: '2px 0' }}>→ {s}</div>
+            ))}
+          </div>
+        )}
+
+        {/* Mark scheme */}
+        {question.msText && (
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 16px', marginBottom: '12px' }}>
             <div style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '8px' }}>
-              Mark Scheme
+              Mark Scheme {question.msMarks != null ? `(${question.msMarks} marks)` : ''}
             </div>
-            {question.markScheme.map((p, i) => (
-              <div key={i} style={{ fontSize: '.82rem', color: 'var(--text)', padding: '4px 0 4px 18px', position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 0, color: 'var(--green)', fontWeight: 700 }}>✓</span>
-                {p}
-              </div>
-            ))}
+            <pre style={{ margin: 0, fontSize: '.82rem', color: 'var(--text)', lineHeight: 1.65, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+              {question.msText}
+            </pre>
           </div>
         )}
 
-        {isEssay && gradeResult.criterionScores && (
-          <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden', marginBottom: '12px' }}>
-            <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.5px' }}>Estimated Score</span>
-              <span style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-bright)' }}>
-                {gradeResult.score} / {gradeResult.maxScore}
-              </span>
-              <span style={{ fontSize: '.72rem', color: 'var(--text-dim)' }}>({gradeResult.gradingType === 'ai_rubric' ? 'AI graded' : 'auto-graded'})</span>
-            </div>
-            {gradeResult.strengths && gradeResult.strengths.length > 0 && (
-              <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '4px' }}>Strengths</div>
-                {gradeResult.strengths.map((s, i) => <div key={i} style={{ fontSize: '.84rem', color: 'var(--text)' }}>✓ {s}</div>)}
-              </div>
-            )}
-            {gradeResult.missingPoints && gradeResult.missingPoints.length > 0 && (
-              <div style={{ padding: '14px 16px' }}>
-                <div style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '4px' }}>Improvements</div>
-                {gradeResult.missingPoints.map((s, i) => <div key={i} style={{ fontSize: '.84rem', color: 'var(--text)' }}>→ {s}</div>)}
-              </div>
-            )}
-          </div>
-        )}
-
-        {!isCorrect && question.commonMistakes && question.commonMistakes.length > 0 && (
-          <div style={{ marginBottom: '14px' }}>
-            <div style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '5px' }}>
-              Common Mistakes
-            </div>
-            {question.commonMistakes.map((m, i) => (
-              <div key={i} style={{ fontSize: '.8rem', color: 'var(--text-dim)', padding: '4px 0' }}>⚠ {m}</div>
-            ))}
-          </div>
-        )}
-
+        {/* Exam tip */}
         <div style={{ background: 'var(--purple-bg)', border: '1px solid rgba(168,85,247,.3)', borderRadius: 'var(--radius)', padding: '12px 14px' }}>
           <div style={{ fontSize: '.68rem', fontWeight: 600, color: 'var(--purple)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '3px' }}>
             📝 Exam Tip
           </div>
           <div style={{ fontSize: '.82rem', color: 'var(--text)', lineHeight: 1.55 }}>
-            {generateExamTip(question.questionType)}
+            {generateExamTip(question.isMcq ? 'mcq' : 'short-answer')}
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-function FeedbackSection({ title, text }: { title: string; text: string }) {
-  return (
-    <div style={{ marginBottom: '14px' }}>
-      <div style={{ fontSize: '.72rem', fontWeight: 600, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '5px' }}>
-        {title}
-      </div>
-      <div style={{ fontSize: '.85rem', lineHeight: 1.65, color: 'var(--text)' }}>{text}</div>
     </div>
   )
 }
@@ -581,6 +583,8 @@ function FlashcardView({
   if (!q) return null
 
   function flip() { setPending(p => ({ ...p, flashcardFlipped: !p.flashcardFlipped })) }
+
+  const correctLetter = q.isMcq ? parseMcqLetter(q.msText) : null
 
   return (
     <div style={{ maxWidth: '860px', margin: '0 auto', padding: '20px 16px 100px' }}>
@@ -602,30 +606,42 @@ function FlashcardView({
             transform: pending.flashcardFlipped ? 'rotateY(180deg)' : 'none',
           }}
         >
+          {/* Front: question image */}
           <div style={{
             position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
             background: 'var(--bg-card)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-lg)', padding: '32px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center',
+            borderRadius: 'var(--radius-lg)', padding: '24px',
+            display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
           }}>
             <div style={{ fontSize: '.7rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }}>
-              Question · {q.topic}
+              {q.subject} · Paper {q.paper} · Q{q.questionNum}
             </div>
-            <div style={{ fontFamily: "'Palatino Linotype', Georgia, serif", fontSize: '1.1rem', color: 'var(--text-bright)', lineHeight: 1.7 }}>{q.prompt}</div>
+            {q.imageUrl ? (
+              <img src={q.imageUrl} alt={`Q${q.questionNum}`} style={{ maxWidth: '100%', borderRadius: 'var(--radius)' }} loading="lazy" />
+            ) : (
+              <div style={{ color: 'var(--text-dim)', fontSize: '.84rem' }}>Image unavailable</div>
+            )}
             <div style={{ marginTop: '16px', fontSize: '.72rem', color: 'var(--text-dim)' }}>Click to flip</div>
           </div>
+          {/* Back: mark scheme */}
           <div style={{
             position: 'absolute', inset: 0, backfaceVisibility: 'hidden',
             background: 'var(--bg-card-hover)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius-lg)', padding: '32px',
-            display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', textAlign: 'center',
-            transform: 'rotateY(180deg)',
+            borderRadius: 'var(--radius-lg)', padding: '24px',
+            display: 'flex', flexDirection: 'column', justifyContent: 'flex-start',
+            transform: 'rotateY(180deg)', overflow: 'auto',
           }}>
-            <div style={{ fontSize: '.7rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '14px' }}>Answer</div>
-            <div style={{ fontFamily: "'Palatino Linotype', Georgia, serif", fontSize: '1.1rem', color: 'var(--text-bright)', lineHeight: 1.7 }}>
-              {q.questionType === 'mcq' ? q.options![q.correctAnswer as number] : (q.correctAnswer ?? q.explanation)}
+            <div style={{ fontSize: '.7rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
+              Answer {q.msMarks != null ? `(${q.msMarks} marks)` : ''}
+              {correctLetter && ` — ${correctLetter}`}
             </div>
-            <div style={{ marginTop: '12px', fontSize: '.8rem', color: 'var(--text-dim)', textAlign: 'left', width: '100%' }}>{q.explanation}</div>
+            {q.msText ? (
+              <pre style={{ margin: 0, fontSize: '.85rem', color: 'var(--text-bright)', lineHeight: 1.7, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>
+                {q.msText}
+              </pre>
+            ) : (
+              <div style={{ color: 'var(--text-dim)', fontSize: '.84rem' }}>No mark scheme available</div>
+            )}
           </div>
         </div>
       </div>

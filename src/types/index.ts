@@ -1,3 +1,22 @@
+// ─── Cloud Question (from Turso + Cloudinary) ─────────────────────
+
+export interface CloudQuestion {
+  id: string           // e.g. "IGCSE__Biology-0610__0610__2020__s20__41__Q3"
+  level: string        // "IGCSE" | "AS_Level" | "A2_Level"
+  subject: string      // "Biology-0610"
+  syllabusCode: string // "0610"
+  year: number         // 2020
+  session: string      // "s" | "w" | "m"
+  paper: string        // "41"
+  questionNum: string  // "3"
+  isMcq: boolean
+  imageUrl: string | null  // Cloudinary JPEG URL
+  msText: string | null    // mark scheme text
+  msMarks: number | null   // total available marks
+  topics: string[]
+  skills: string[]
+}
+
 // ─── Question Types ───────────────────────────────────────────────
 
 export type QuestionType = 'mcq' | 'short-answer' | 'calculation' | 'essay'
@@ -62,6 +81,7 @@ export interface SessionFilters {
   topic: string
   difficulty: string
   questionType: string
+  year?: string  // cloud questions filter
 }
 
 export interface SessionSummary {
