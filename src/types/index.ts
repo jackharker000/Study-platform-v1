@@ -1,4 +1,4 @@
-// ─── Cloud Question (from Turso + Cloudinary) ─────────────────────
+// ─── Cloud Question (from Turso + ngrok PDF server) ────────────────
 
 export interface CloudQuestion {
   id: string           // e.g. "IGCSE__Biology-0610__0610__2020__s20__41__Q3"
@@ -10,7 +10,7 @@ export interface CloudQuestion {
   paper: string        // "41"
   questionNum: string  // "3"
   isMcq: boolean
-  imageUrl: string | null  // Cloudinary JPEG URL
+  imageUrl: string | null  // PDF URL (served via ngrok → local PC)
   msText: string | null    // mark scheme text
   msMarks: number | null   // total available marks
   topics: string[]

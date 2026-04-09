@@ -124,7 +124,7 @@ export async function GET(req: NextRequest) {
     const orderBy = shuffle ? 'ORDER BY RANDOM()' : 'ORDER BY year DESC, paper, CAST(question_num AS INTEGER)'
     const sql = `
       SELECT id, level, subject, syllabus_code, year, session, paper,
-             question_num, is_mcq, cloudinary_url, ms_text, ms_marks, topics, skills
+             question_num, is_mcq, pdf_url, ms_text, ms_marks, topics, skills
       FROM questions
       ${whereClause}
       ${orderBy}
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
       paper:        String(row.paper ?? ''),
       questionNum:  String(row.question_num ?? ''),
       isMcq:        Number(row.is_mcq) === 1,
-      imageUrl:     row.cloudinary_url ? String(row.cloudinary_url) : null,
+      imageUrl:     row.pdf_url ? String(row.pdf_url) : null,
       msText:       row.ms_text ? String(row.ms_text) : null,
       msMarks:      row.ms_marks != null ? Number(row.ms_marks) : null,
       topics:       parseTopics(row.topics),

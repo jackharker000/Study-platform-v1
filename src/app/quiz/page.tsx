@@ -229,24 +229,12 @@ function QuizInner() {
           {currentQ.subject} · Paper {currentQ.paper} · Q{currentQ.questionNum} · {currentQ.year}
         </div>
 
-        {/* Question image from Cloudinary */}
+        {/* Question PDF */}
         {currentQ.imageUrl ? (
-          <div style={{ marginBottom: '22px' }}>
-            <img
-              src={currentQ.imageUrl}
-              alt={`Question ${currentQ.questionNum}`}
-              style={{
-                maxWidth: '100%',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                display: 'block',
-              }}
-              loading="lazy"
-            />
-          </div>
+          <QuestionPdf url={currentQ.imageUrl} questionNum={currentQ.questionNum} />
         ) : (
           <div style={{ fontSize: '.84rem', color: 'var(--text-dim)', marginBottom: '22px', fontStyle: 'italic' }}>
-            Question image unavailable
+            Question unavailable
           </div>
         )}
 
@@ -570,6 +558,42 @@ function CloudFeedbackPanel({ question, answer }: { question: CloudQuestion; ans
   )
 }
 
+// ─── PDF Viewer ────────────────────────────────────────────────────
+
+function QuestionPdf({ url, questionNum }: { url: string; questionNum: string }) {
+  return (
+    <div style={{ marginBottom: '22px' }}>
+      <object
+        data={url}
+        type="application/pdf"
+        style={{
+          width: '100%',
+          minHeight: '420px',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          display: 'block',
+          background: '#fff',
+        }}
+      >
+        {/* Fallback for browsers that can't embed PDFs (e.g. mobile Safari) */}
+        <div style={{
+          padding: '20px', textAlign: 'center',
+          fontSize: '.84rem', color: 'var(--text-dim)',
+        }}>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: 'var(--accent)', textDecoration: 'underline' }}
+          >
+            Open question {questionNum} in new tab ↗
+          </a>
+        </div>
+      </object>
+    </div>
+  )
+}
+
 function FlashcardView({
   quiz, pending, setPending, goNext, goPrev,
 }: {
@@ -617,9 +641,9 @@ function FlashcardView({
               {q.subject} · Paper {q.paper} · Q{q.questionNum}
             </div>
             {q.imageUrl ? (
-              <img src={q.imageUrl} alt={`Q${q.questionNum}`} style={{ maxWidth: '100%', borderRadius: 'var(--radius)' }} loading="lazy" />
+              <QuestionPdf url={q.imageUrl} questionNum={q.questionNum} />
             ) : (
-              <div style={{ color: 'var(--text-dim)', fontSize: '.84rem' }}>Image unavailable</div>
+              <div style={{ color: 'var(--text-dim)', fontSize: '.84rem' }}>Question unavailable</div>
             )}
             <div style={{ marginTop: '16px', fontSize: '.72rem', color: 'var(--text-dim)' }}>Click to flip</div>
           </div>
