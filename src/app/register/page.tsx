@@ -54,7 +54,7 @@ export default function RegisterPage() {
         </h1>
         <p style={{ fontSize: '.8rem', color: 'var(--text-dim)', marginBottom: '24px' }}>
           Or{' '}
-          <Link href="/login" style={{ color: 'var(--accent)' }}>sign in with Google / Microsoft</Link>
+          <Link href="/login" style={{ color: 'var(--accent)' }}>sign in with Google</Link>
           {' '}— no registration needed
         </p>
 
