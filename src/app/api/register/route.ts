@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       )
     `)
 
-    const hash = await bcrypt.hash(password, 12)
+    const hash = await bcrypt.hash(password, 10)
     const id = uuidv4()
 
     await db.execute({
