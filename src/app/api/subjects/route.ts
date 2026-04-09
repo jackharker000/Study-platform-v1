@@ -31,7 +31,10 @@ export async function GET() {
   try {
     const db = getTursoClient()
     const result = await db.execute(
-      'SELECT id, name, level, syllabus, icon, color, question_count FROM subjects ORDER BY level, name'
+      `SELECT id, name, level, syllabus, icon, color, question_count FROM subjects
+       WHERE question_count >= 30
+         AND name IS NOT NULL AND name != '' AND name != 'Unknown'
+       ORDER BY level, name`
     )
 
     const subjects: SubjectInfo[] = result.rows.map(row => ({
@@ -40,7 +43,7 @@ export async function GET() {
       level:   LEVEL_DISPLAY[String(row.level ?? '')] ?? String(row.level ?? '').toUpperCase(),
       syllabus: String(row.syllabus ?? ''),
       color:   String(row.color ?? '#6b7280'),
-      icon:    String(row.icon ?? '📚'),
+      icon:    String(row.icon ?? ''),
       count:   Number(row.question_count ?? 0),
     }))
 

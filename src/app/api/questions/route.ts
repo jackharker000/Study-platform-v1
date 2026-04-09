@@ -14,6 +14,15 @@ function parseTopics(raw: unknown): string[] {
   try { return JSON.parse(raw) } catch { return [] }
 }
 
+// Fallback: if DB says not MCQ but ms_text is a single A/B/C/D answer, override
+function detectIsMcq(dbFlag: number, msText: string | null): boolean {
+  if (dbFlag === 1) return true
+  if (!msText) return false
+  const firstLine = msText.trim().split('\n')[0].trim()
+  // Matches "C", "B [1]", "A (1)" — a lone letter with optional mark notation
+  return /^[A-D]\s*(\[\d+\]|\(\d+\))?$/i.test(firstLine)
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const subjectId  = searchParams.get('subjectId') ?? ''
@@ -154,7 +163,7 @@ export async function GET(req: NextRequest) {
         session:      String(row.session ?? ''),
         paper:        String(row.paper ?? ''),
         questionNum:  String(row.question_num ?? ''),
-        isMcq:        Number(row.is_mcq) === 1,
+        isMcq:        detectIsMcq(Number(row.is_mcq), row.ms_text ? String(row.ms_text) : null),
         imageUrl:     row.pdf_url ? String(row.pdf_url) : null,
         msText:       row.ms_text ? String(row.ms_text) + msNote : null,
         msMarks:      row.ms_marks != null ? Number(row.ms_marks) : null,
