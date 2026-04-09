@@ -31,33 +31,19 @@
   --pdf-filter: invert(1);
 }
 
-/* ── Light theme vars ─────────────────────────────────────── */
-.light-vars {
-  --bg: #f4f6f9;
-  --bg-card: #ffffff;
-  --bg-card-hover: #f0f2f5;
-  --bg-input: #ffffff;
-  --border: #e2e6eb;
-  --border-focus: #2563eb;
-  --text: #374151;
-  --text-dim: #9ca3af;
-  --text-bright: #111827;
-  --accent: #2563eb;
-  --accent-glow: #2563eb20;
-  --green: #16a34a;
-  --green-bg: #16a34a15;
-  --red: #dc2626;
-  --red-bg: #dc262615;
-  --amber: #d97706;
-  --amber-bg: #d9770615;
-  --purple: #7c3aed;
-  --purple-bg: #7c3aed15;
+/* Applied by ThemeToggle via data-theme attribute */
+html[data-theme="light"] {
+  --bg: #f4f6f9; --bg-card: #ffffff; --bg-card-hover: #f0f2f5;
+  --bg-input: #ffffff; --border: #e2e6eb; --border-focus: #2563eb;
+  --text: #374151; --text-dim: #9ca3af; --text-bright: #111827;
+  --accent: #2563eb; --accent-glow: #2563eb20;
+  --green: #16a34a; --green-bg: #16a34a15;
+  --red: #dc2626; --red-bg: #dc262615;
+  --amber: #d97706; --amber-bg: #d9770615;
+  --purple: #7c3aed; --purple-bg: #7c3aed15;
   --pdf-filter: none;
 }
-
-/* Applied by ThemeToggle via data-theme attribute */
-html[data-theme="light"] { .light-vars }
-html[data-theme="dark"]  { --pdf-filter: invert(1); }
+html[data-theme="dark"] { --pdf-filter: invert(1); }
 
 /* System preference fallback when no data-theme set */
 @media (prefers-color-scheme: light) {
