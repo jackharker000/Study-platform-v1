@@ -229,24 +229,12 @@ function QuizInner() {
           {currentQ.subject} · Paper {currentQ.paper} · Q{currentQ.questionNum} · {currentQ.year}
         </div>
 
-        {/* Question image from Cloudinary */}
+        {/* Question PDF with annotation canvas */}
         {currentQ.imageUrl ? (
-          <div style={{ marginBottom: '22px' }}>
-            <img
-              src={currentQ.imageUrl}
-              alt={`Question ${currentQ.questionNum}`}
-              style={{
-                maxWidth: '100%',
-                borderRadius: 'var(--radius)',
-                border: '1px solid var(--border)',
-                display: 'block',
-              }}
-              loading="lazy"
-            />
-          </div>
+          <AnnotatedQuestion url={currentQ.imageUrl} questionNum={currentQ.questionNum} questionId={currentQ.id} />
         ) : (
           <div style={{ fontSize: '.84rem', color: 'var(--text-dim)', marginBottom: '22px', fontStyle: 'italic' }}>
-            Question image unavailable
+            Question unavailable
           </div>
         )}
 
@@ -570,6 +558,202 @@ function CloudFeedbackPanel({ question, answer }: { question: CloudQuestion; ans
   )
 }
 
+// ─── PDF Viewer ────────────────────────────────────────────────────
+
+function proxyUrl(raw: string): string {
+  return `/api/pdf-proxy?url=${encodeURIComponent(raw)}`
+}
+
+function QuestionPdf({ url, questionNum }: { url: string; questionNum: string }) {
+  const src = proxyUrl(url)
+  return (
+    <div style={{ marginBottom: '22px' }}>
+      <object
+        data={src}
+        type="application/pdf"
+        className="question-pdf"
+        style={{
+          width: '100%',
+          minHeight: '420px',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)',
+          display: 'block',
+          background: '#fff',
+        }}
+      >
+        <div style={{ padding: '20px', textAlign: 'center', fontSize: '.84rem', color: 'var(--text-dim)' }}>
+          <a href={src} target="_blank" rel="noopener noreferrer"
+            style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+            Open question {questionNum} in new tab ↗
+          </a>
+        </div>
+      </object>
+    </div>
+  )
+}
+
+// ─── Annotation Canvas Overlay ─────────────────────────────────────
+
+function AnnotatedQuestion({ url, questionNum, questionId }: {
+  url: string; questionNum: string; questionId: string
+}) {
+  const src = proxyUrl(url)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const drawing = useRef(false)
+  const lastPos = useRef<[number, number] | null>(null)
+  const [tool, setTool] = useState<'pen' | 'eraser'>('pen')
+  const [canvasH, setCanvasH] = useState(420)
+  const objectRef = useRef<HTMLObjectElement>(null)
+
+  // Clear canvas when question changes
+  useEffect(() => {
+    const cv = canvasRef.current
+    if (!cv) return
+    cv.getContext('2d')?.clearRect(0, 0, cv.width, cv.height)
+    drawing.current = false
+    lastPos.current = null
+  }, [questionId])
+
+  // Match canvas pixel size to rendered size
+  useEffect(() => {
+    const ob = objectRef.current
+    if (!ob) return
+    const ro = new ResizeObserver(entries => {
+      for (const e of entries) {
+        const h = e.contentRect.height
+        setCanvasH(h > 60 ? h : 420)
+      }
+    })
+    ro.observe(ob)
+    return () => ro.disconnect()
+  }, [])
+
+  function getXY(e: React.PointerEvent<HTMLCanvasElement>): [number, number] {
+    const rect = canvasRef.current!.getBoundingClientRect()
+    const scaleX = canvasRef.current!.width / rect.width
+    const scaleY = canvasRef.current!.height / rect.height
+    return [(e.clientX - rect.left) * scaleX, (e.clientY - rect.top) * scaleY]
+  }
+
+  function onPointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    drawing.current = true
+    const pos = getXY(e)
+    lastPos.current = pos
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx) return
+    ctx.beginPath()
+    ctx.moveTo(...pos)
+  }
+
+  function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawing.current) return
+    const ctx = canvasRef.current?.getContext('2d')
+    if (!ctx) return
+    const pos = getXY(e)
+    const pressure = e.pressure > 0 ? e.pressure : 0.5
+    ctx.globalCompositeOperation = tool === 'eraser' ? 'destination-out' : 'source-over'
+    ctx.lineWidth = tool === 'eraser' ? 28 : Math.max(1.5, pressure * 5)
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = 'rgba(250,204,21,0.9)'  // yellow — visible on both themes
+    ctx.lineTo(...pos)
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(...pos)
+    lastPos.current = pos
+  }
+
+  function onPointerUp() {
+    drawing.current = false
+    lastPos.current = null
+    canvasRef.current?.getContext('2d')?.beginPath()
+  }
+
+  function clearCanvas() {
+    const cv = canvasRef.current
+    if (cv) cv.getContext('2d')?.clearRect(0, 0, cv.width, cv.height)
+  }
+
+  return (
+    <div style={{ marginBottom: '22px' }}>
+      <div style={{ position: 'relative' }}>
+        <object
+          ref={objectRef}
+          data={src}
+          type="application/pdf"
+          className="question-pdf"
+          style={{
+            width: '100%',
+            minHeight: '420px',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            display: 'block',
+            background: '#fff',
+          }}
+        >
+          <div style={{ padding: '20px', textAlign: 'center', fontSize: '.84rem', color: 'var(--text-dim)' }}>
+            <a href={src} target="_blank" rel="noopener noreferrer"
+              style={{ color: 'var(--accent)', textDecoration: 'underline' }}>
+              Open question {questionNum} in new tab ↗
+            </a>
+          </div>
+        </object>
+
+        {/* Drawing canvas */}
+        <canvas
+          ref={canvasRef}
+          width={900}
+          height={canvasH}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerUp}
+          style={{
+            position: 'absolute', top: 0, left: 0,
+            width: '100%', height: '100%',
+            touchAction: 'none',
+            cursor: tool === 'eraser' ? 'cell' : 'crosshair',
+            borderRadius: 'var(--radius)',
+          }}
+        />
+
+        {/* Annotation toolbar */}
+        <div style={{
+          position: 'absolute', top: '8px', right: '8px',
+          display: 'flex', gap: '4px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '4px',
+        }}>
+          {(['pen', 'eraser'] as const).map(t => (
+            <button key={t} onClick={() => setTool(t)} title={t === 'pen' ? 'Draw' : 'Eraser'}
+              style={{
+                width: '28px', height: '28px',
+                background: tool === t ? 'var(--accent-glow)' : 'transparent',
+                border: `1px solid ${tool === t ? 'var(--accent)' : 'transparent'}`,
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer', fontSize: '.75rem',
+                color: tool === t ? 'var(--accent)' : 'var(--text-dim)',
+              }}>
+              {t === 'pen' ? '✏' : '⌫'}
+            </button>
+          ))}
+          <button onClick={clearCanvas} title="Clear all"
+            style={{
+              width: '28px', height: '28px', background: 'transparent',
+              border: '1px solid transparent', borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer', fontSize: '.75rem', color: 'var(--text-dim)',
+            }}>
+            ✕
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function FlashcardView({
   quiz, pending, setPending, goNext, goPrev,
 }: {
@@ -617,10 +801,11 @@ function FlashcardView({
               {q.subject} · Paper {q.paper} · Q{q.questionNum}
             </div>
             {q.imageUrl ? (
-              <img src={q.imageUrl} alt={`Q${q.questionNum}`} style={{ maxWidth: '100%', borderRadius: 'var(--radius)' }} loading="lazy" />
+              <QuestionPdf url={q.imageUrl} questionNum={q.questionNum} />
             ) : (
-              <div style={{ color: 'var(--text-dim)', fontSize: '.84rem' }}>Image unavailable</div>
+              <div style={{ color: 'var(--text-dim)', fontSize: '.84rem' }}>Question unavailable</div>
             )}
+
             <div style={{ marginTop: '16px', fontSize: '.72rem', color: 'var(--text-dim)' }}>Click to flip</div>
           </div>
           {/* Back: mark scheme */}

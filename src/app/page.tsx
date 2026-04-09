@@ -2,54 +2,34 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SUBJECTS } from '@/data/subjects'
+import Link from 'next/link'
 import { NavTabs, SectionLabel } from '@/components/ui'
 import type { SubjectInfo } from '@/app/api/subjects/route'
 
 export default function HomePage() {
   const router = useRouter()
-  const [subjects, setSubjects] = useState<SubjectInfo[]>(() =>
-    SUBJECTS.map(s => ({ ...s, count: 0 }))
-  )
+  const [subjects, setSubjects] = useState<SubjectInfo[]>([])
+  const [userSubjectIds, setUserSubjectIds] = useState<string[] | null>(null)
 
   useEffect(() => {
-    fetch('/api/subjects')
-      .then(r => r.json())
-      .then((data: SubjectInfo[]) => setSubjects(data))
-      .catch(() => { /* keep fallback counts */ })
+    Promise.all([
+      fetch('/api/subjects').then(r => r.json()) as Promise<SubjectInfo[]>,
+      fetch('/api/user/subjects').then(r => r.json()).catch(() => []) as Promise<string[]>,
+    ]).then(([allSubjects, userIds]) => {
+      setSubjects(allSubjects)
+      setUserSubjectIds(Array.isArray(userIds) ? userIds : [])
+    }).catch(() => { /* keep empty */ })
   }, [])
+
+  const filteredSubjects =
+    userSubjectIds && userSubjectIds.length > 0
+      ? subjects.filter(s => userSubjectIds.includes(s.id))
+      : subjects
+
+  const showingAll = !userSubjectIds || userSubjectIds.length === 0
 
   return (
     <div style={{ maxWidth: '860px', margin: '0 auto', padding: '20px 16px 100px' }}>
-      {/* Header */}
-      <div className="fade-up" style={{ textAlign: 'center', padding: '28px 0 18px' }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-          <div
-            style={{
-              width: '32px', height: '32px',
-              background: 'linear-gradient(135deg, #3b82f6, #a855f7)',
-              borderRadius: '8px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 800, fontSize: '14px', color: '#fff',
-            }}
-          >
-            R
-          </div>
-          <h1
-            style={{
-              fontFamily: "'Palatino Linotype', Georgia, serif",
-              fontSize: '1.85rem',
-              color: 'var(--text-bright)',
-              fontWeight: 600,
-            }}
-          >
-            Revision Platform
-          </h1>
-        </div>
-        <div style={{ fontSize: '.82rem', color: 'var(--text-dim)' }}>
-          Multi-subject IGCSE &amp; AS Level practice
-        </div>
-      </div>
 
       {/* Nav */}
       <div className="fade-up stagger-1">
@@ -63,9 +43,22 @@ export default function HomePage() {
         />
       </div>
 
-      <div className="fade-up stagger-2">
+      <div className="fade-up stagger-2" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <SectionLabel>Choose a subject</SectionLabel>
+        <Link
+          href="/settings"
+          style={{ fontSize: '.8rem', color: 'var(--accent)', textDecoration: 'none' }}
+        >
+          Manage courses
+        </Link>
       </div>
+
+      {showingAll && (
+        <p className="fade-up stagger-2" style={{ fontSize: '.8rem', color: 'var(--text-dim)', marginBottom: '12px' }}>
+          Showing all courses — select your subjects in{' '}
+          <Link href="/settings" style={{ color: 'var(--accent)' }}>Settings</Link>
+        </p>
+      )}
 
       {/* Subject grid */}
       <div
@@ -77,7 +70,7 @@ export default function HomePage() {
           marginBottom: '24px',
         }}
       >
-        {subjects.map(s => (
+        {filteredSubjects.map(s => (
           <SubjectCard
             key={s.id}
             subject={s}
