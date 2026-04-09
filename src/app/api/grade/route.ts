@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { GradeResult } from '@/types'
 
+export const dynamic = 'force-dynamic'
+
 interface GradeCloudPayload {
   questionId: string
   userAnswer: string

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTursoClient, isTursoConfigured } from '@/lib/turso'
+
+export const dynamic = 'force-dynamic'
 import { getTursoSubject } from '@/lib/subjectMap'
 import { filterQuestions } from '@/data/questions'
 import type { CloudQuestion } from '@/types'

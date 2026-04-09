@@ -3,8 +3,10 @@ import { getTursoClient, isTursoConfigured } from '@/lib/turso'
 import { SUBJECTS } from '@/data/subjects'
 import { QUESTIONS } from '@/data/questions'
 
+export const dynamic = 'force-dynamic'
+
 export interface SubjectInfo {
-  id: string       // app subject ID e.g. "ig_biology"
+  id: string
   name: string
   level: string
   syllabus: string
