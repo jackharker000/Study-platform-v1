@@ -15,8 +15,11 @@ export interface SubjectInfo {
   count: number
 }
 
+const LEVEL_DISPLAY: Record<string, string> = {
+  ig: 'IGCSE', as: 'AS Level', a2: 'A Level',
+}
+
 export async function GET() {
-  // If Turso is not configured, fall back to hardcoded data
   if (!isTursoConfigured()) {
     const subjects: SubjectInfo[] = SUBJECTS.map(s => ({
       ...s,
@@ -27,32 +30,23 @@ export async function GET() {
 
   try {
     const db = getTursoClient()
+    const result = await db.execute(
+      'SELECT id, name, level, syllabus, icon, color, question_count FROM subjects ORDER BY level, name'
+    )
 
-    // Query per-subject counts from the questions table
-    const result = await db.execute(`
-      SELECT level, subject, COUNT(*) as count
-      FROM questions
-      GROUP BY level, subject
-    `)
-
-    // Map Turso (level, subject) pairs back to app subject IDs
-    const tursoCountMap = new Map<string, number>()
-    for (const row of result.rows) {
-      const key = `${row.level}__${row.subject}`
-      tursoCountMap.set(key, Number(row.count))
-    }
-
-    const { SUBJECT_TO_TURSO } = await import('@/lib/subjectMap')
-    const subjects: SubjectInfo[] = SUBJECTS.map(s => {
-      const turso = SUBJECT_TO_TURSO[s.id]
-      const count = turso ? (tursoCountMap.get(`${turso.level}__${turso.subject}`) ?? 0) : 0
-      return { ...s, count }
-    })
+    const subjects: SubjectInfo[] = result.rows.map(row => ({
+      id:      String(row.id ?? ''),
+      name:    String(row.name ?? ''),
+      level:   LEVEL_DISPLAY[String(row.level ?? '')] ?? String(row.level ?? '').toUpperCase(),
+      syllabus: String(row.syllabus ?? ''),
+      color:   String(row.color ?? '#6b7280'),
+      icon:    String(row.icon ?? '📚'),
+      count:   Number(row.question_count ?? 0),
+    }))
 
     return NextResponse.json(subjects)
   } catch (err) {
     console.error('[api/subjects]', err)
-    // Fallback to hardcoded counts on error
     const subjects: SubjectInfo[] = SUBJECTS.map(s => ({
       ...s,
       count: QUESTIONS.filter(q => q.subject === s.id).length,

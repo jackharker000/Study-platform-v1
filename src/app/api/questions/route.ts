@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTursoClient, isTursoConfigured } from '@/lib/turso'
-
-export const dynamic = 'force-dynamic'
-import { getTursoSubject } from '@/lib/subjectMap'
 import { filterQuestions } from '@/data/questions'
 import type { CloudQuestion } from '@/types'
+
+export const dynamic = 'force-dynamic'
+
+const LEVEL_DISPLAY: Record<string, string> = {
+  ig: 'IGCSE', as: 'AS Level', a2: 'A Level',
+}
 
 function parseTopics(raw: unknown): string[] {
   if (!raw || typeof raw !== 'string') return []
@@ -21,8 +24,7 @@ export async function GET(req: NextRequest) {
   const limitStr   = searchParams.get('limit') ?? '20'
   const shuffle    = searchParams.get('shuffle') === 'true'
   const countOnly  = searchParams.get('countOnly') === 'true'
-  // distinct=topic or distinct=paper returns unique values, not full questions
-  const distinct   = searchParams.get('distinct')
+  const distinct   = searchParams.get('distinct')   // 'topic' | 'paper' | 'year'
 
   const limit = Math.min(parseInt(limitStr, 10) || 20, 200)
 
@@ -38,22 +40,14 @@ export async function GET(req: NextRequest) {
     if (countOnly) return NextResponse.json({ count: pool.length })
     if (distinct === 'topic') return NextResponse.json([...new Set(pool.map(q => q.topic))])
     if (distinct === 'paper') return NextResponse.json([...new Set(pool.map(q => q.paper))])
+    if (distinct === 'year')  return NextResponse.json([])
 
     const questions: CloudQuestion[] = pool.slice(0, limit).map(q => ({
-      id: q.id,
-      level: q.level,
-      subject: q.syllabus,
-      syllabusCode: q.syllabus,
-      year: 0,
-      session: '',
-      paper: q.paper,
-      questionNum: '',
-      isMcq: q.questionType === 'mcq',
-      imageUrl: null,
-      msText: q.markScheme?.join('\n') ?? null,
-      msMarks: q.marks,
-      topics: [q.topic],
-      skills: q.skillsTested ?? [],
+      id: q.id, level: q.level, subject: q.syllabus, syllabusCode: q.syllabus,
+      year: 0, session: '', paper: q.paper, questionNum: '',
+      isMcq: q.questionType === 'mcq', imageUrl: null,
+      msText: q.markScheme?.join('\n') ?? null, msMarks: q.marks,
+      topics: [q.topic], skills: [],
     }))
     return NextResponse.json(questions)
   }
@@ -61,25 +55,54 @@ export async function GET(req: NextRequest) {
   // ── Turso path ─────────────────────────────────────────────────
   try {
     const db = getTursoClient()
-    const turso = getTursoSubject(subjectId)
 
-    // distinct=topic / distinct=paper — return unique filter values
-    if (distinct === 'topic' || distinct === 'paper') {
-      let col = distinct === 'topic' ? 'topics' : 'paper'
-      if (distinct === 'paper') {
-        const where: string[] = []
-        const args: (string | number)[] = []
-        if (turso) { where.push('level = ?', 'subject = ?'); args.push(turso.level, turso.subject) }
-        const sql = `SELECT DISTINCT paper FROM questions${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY paper`
-        const r = await db.execute({ sql, args })
-        return NextResponse.json(r.rows.map(row => row[col as keyof typeof row]))
-      }
-      // For topics (stored as JSON array), we need to aggregate
-      const where: string[] = []
-      const args: (string | number)[] = []
-      if (turso) { where.push('level = ?', 'subject = ?'); args.push(turso.level, turso.subject) }
-      const sql = `SELECT topics FROM questions${where.length ? ' WHERE ' + where.join(' AND ') : ''}`
-      const r = await db.execute({ sql, args })
+    // Build WHERE args
+    const conditions: string[] = []
+    const args: (string | number)[] = []
+
+    if (subjectId) {
+      conditions.push('q.subject_id = ?')
+      args.push(subjectId)
+    }
+    if (paper && paper !== 'all') {
+      conditions.push('q.paper = ?')
+      args.push(paper)
+    }
+    if (year && year !== 'all') {
+      conditions.push('q.year = ?')
+      args.push(parseInt(year, 10))
+    }
+    if (isMcqStr === '1') conditions.push('q.is_mcq = 1')
+    else if (isMcqStr === '0') conditions.push('q.is_mcq = 0')
+    if (topic && topic !== 'all') {
+      conditions.push('q.topics LIKE ?')
+      args.push(`%${topic}%`)
+    }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+
+    // ── distinct queries (return unique filter values) ─────────
+    if (distinct === 'paper') {
+      const r = await db.execute({
+        sql: `SELECT DISTINCT q.paper FROM questions q ${where} ORDER BY q.paper`,
+        args,
+      })
+      return NextResponse.json(r.rows.map(row => row.paper))
+    }
+
+    if (distinct === 'year') {
+      const r = await db.execute({
+        sql: `SELECT DISTINCT q.year FROM questions q ${where} ORDER BY q.year DESC`,
+        args,
+      })
+      return NextResponse.json(r.rows.map(row => String(row.year)))
+    }
+
+    if (distinct === 'topic') {
+      const r = await db.execute({
+        sql: `SELECT q.topics FROM questions q ${where}`,
+        args,
+      })
       const topicsSet = new Set<string>()
       for (const row of r.rows) {
         for (const t of parseTopics(row.topics)) topicsSet.add(t)
@@ -87,69 +110,58 @@ export async function GET(req: NextRequest) {
       return NextResponse.json([...topicsSet].sort())
     }
 
-    // Build WHERE clause
-    const conditions: string[] = []
-    const args: (string | number)[] = []
-
-    if (turso) {
-      conditions.push('level = ?', 'subject = ?')
-      args.push(turso.level, turso.subject)
-    }
-    if (paper && paper !== 'all') {
-      conditions.push('paper = ?')
-      args.push(paper)
-    }
-    if (year && year !== 'all') {
-      conditions.push('year = ?')
-      args.push(parseInt(year, 10))
-    }
-    if (isMcqStr === '1') {
-      conditions.push('is_mcq = 1')
-    } else if (isMcqStr === '0') {
-      conditions.push('is_mcq = 0')
-    }
-    if (topic && topic !== 'all') {
-      conditions.push("topics LIKE ?")
-      args.push(`%${topic}%`)
-    }
-
-    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
-
+    // ── count only ─────────────────────────────────────────────
     if (countOnly) {
-      const sql = `SELECT COUNT(*) as count FROM questions ${whereClause}`
-      const r = await db.execute({ sql, args })
+      const r = await db.execute({
+        sql: `SELECT COUNT(*) as count FROM questions q ${where}`,
+        args,
+      })
       return NextResponse.json({ count: Number(r.rows[0]?.count ?? 0) })
     }
 
-    const orderBy = shuffle ? 'ORDER BY RANDOM()' : 'ORDER BY year DESC, paper, CAST(question_num AS INTEGER)'
-    const sql = `
-      SELECT id, level, subject, syllabus_code, year, session, paper,
-             question_num, is_mcq, pdf_url, ms_text, ms_marks, topics, skills
-      FROM questions
-      ${whereClause}
-      ${orderBy}
-      LIMIT ?
-    `
-    args.push(limit)
+    // ── full question fetch (with subjects JOIN for display info) ─
+    const orderBy = shuffle
+      ? 'ORDER BY RANDOM()'
+      : 'ORDER BY q.year DESC, q.paper, CAST(q.question_num AS INTEGER)'
 
-    const result = await db.execute({ sql, args })
+    const r = await db.execute({
+      sql: `
+        SELECT q.id, q.subject_id, q.year, q.session, q.session_name, q.paper,
+               q.question_num, q.is_mcq, q.ms_marks, q.ms_text, q.ms_guidance,
+               q.topics, q.pdf_url,
+               s.name  AS subject_name,
+               s.level AS subject_level,
+               s.syllabus AS subject_syllabus
+        FROM questions q
+        LEFT JOIN subjects s ON q.subject_id = s.id
+        ${where}
+        ${orderBy}
+        LIMIT ?
+      `,
+      args: [...args, limit],
+    })
 
-    const questions: CloudQuestion[] = result.rows.map(row => ({
-      id:           String(row.id ?? ''),
-      level:        String(row.level ?? ''),
-      subject:      String(row.subject ?? ''),
-      syllabusCode: String(row.syllabus_code ?? ''),
-      year:         Number(row.year ?? 0),
-      session:      String(row.session ?? ''),
-      paper:        String(row.paper ?? ''),
-      questionNum:  String(row.question_num ?? ''),
-      isMcq:        Number(row.is_mcq) === 1,
-      imageUrl:     row.pdf_url ? String(row.pdf_url) : null,
-      msText:       row.ms_text ? String(row.ms_text) : null,
-      msMarks:      row.ms_marks != null ? Number(row.ms_marks) : null,
-      topics:       parseTopics(row.topics),
-      skills:       parseTopics(row.skills),
-    }))
+    const questions: CloudQuestion[] = r.rows.map(row => {
+      const lvlCode = String(row.subject_level ?? '')
+      const level   = LEVEL_DISPLAY[lvlCode] ?? lvlCode.toUpperCase()
+      const msNote  = row.ms_guidance ? `\n\n[Guidance]\n${String(row.ms_guidance)}` : ''
+      return {
+        id:           String(row.id ?? ''),
+        level,
+        subject:      String(row.subject_name ?? row.subject_id ?? ''),
+        syllabusCode: String(row.subject_syllabus ?? ''),
+        year:         Number(row.year ?? 0),
+        session:      String(row.session ?? ''),
+        paper:        String(row.paper ?? ''),
+        questionNum:  String(row.question_num ?? ''),
+        isMcq:        Number(row.is_mcq) === 1,
+        imageUrl:     row.pdf_url ? String(row.pdf_url) : null,
+        msText:       row.ms_text ? String(row.ms_text) + msNote : null,
+        msMarks:      row.ms_marks != null ? Number(row.ms_marks) : null,
+        topics:       parseTopics(row.topics),
+        skills:       [],
+      }
+    })
 
     return NextResponse.json(questions)
   } catch (err) {

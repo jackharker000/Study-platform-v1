@@ -2,15 +2,12 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SUBJECTS } from '@/data/subjects'
 import { NavTabs, SectionLabel } from '@/components/ui'
 import type { SubjectInfo } from '@/app/api/subjects/route'
 
 export default function HomePage() {
   const router = useRouter()
-  const [subjects, setSubjects] = useState<SubjectInfo[]>(() =>
-    SUBJECTS.map(s => ({ ...s, count: 0 }))
-  )
+  const [subjects, setSubjects] = useState<SubjectInfo[]>([])
 
   useEffect(() => {
     fetch('/api/subjects')

@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { SUBJECT_MAP } from '@/data/subjects'
 import { Button, SectionLabel, ChipRow, Chip, Select } from '@/components/ui'
 import type { SessionMode, SessionFilters } from '@/types'
+import type { SubjectInfo } from '@/app/api/subjects/route'
 import { createSession } from '@/lib/sessionStore'
 
 const MODES: { id: SessionMode; name: string; desc: string }[] = [
@@ -17,14 +17,15 @@ const MODES: { id: SessionMode; name: string; desc: string }[] = [
 ]
 
 const COUNTS = [5, 10, 15, 20]
-
-// Known Cambridge exam sessions
 const SESSION_LABELS: Record<string, string> = { s: 'Summer', w: 'Winter', m: 'March' }
+void SESSION_LABELS // used by future session filter if added
 
 export default function SubjectPage() {
   const router = useRouter()
   const { id } = useParams<{ id: string }>()
-  const subject = SUBJECT_MAP[id]
+
+  const [subject, setSubject] = useState<SubjectInfo | null>(null)
+  const [subjectLoading, setSubjectLoading] = useState(true)
 
   const [mode, setMode] = useState<SessionMode>('practice')
   const [filters, setFilters] = useState<SessionFilters>({
@@ -34,13 +35,24 @@ export default function SubjectPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  // Dynamic filter options loaded from cloud
   const [papers, setPapers] = useState<string[]>([])
   const [topics, setTopics] = useState<string[]>([])
   const [years, setYears] = useState<string[]>([])
   const [poolCount, setPoolCount] = useState<number | null>(null)
 
-  // Load available filter values from the API when the subject changes
+  // Fetch subject info from the subjects API
+  useEffect(() => {
+    if (!id) return
+    fetch('/api/subjects')
+      .then(r => r.json())
+      .then((data: SubjectInfo[]) => {
+        setSubject(data.find(s => s.id === id) ?? null)
+        setSubjectLoading(false)
+      })
+      .catch(() => setSubjectLoading(false))
+  }, [id])
+
+  // Load available filter values from the questions API
   useEffect(() => {
     if (!id) return
     const base = `/api/questions?subjectId=${encodeURIComponent(id)}`
@@ -51,11 +63,11 @@ export default function SubjectPage() {
     ]).then(([p, t, y]) => {
       setPapers(Array.isArray(p) ? (p as string[]).filter(Boolean) : [])
       setTopics(Array.isArray(t) ? (t as string[]).filter(Boolean) : [])
-      setYears(Array.isArray(y) ? (y as (string | number)[]).map(String).filter(Boolean) : [])
+      setYears(Array.isArray(y) ? (y as string[]).filter(Boolean) : [])
     })
   }, [id])
 
-  // Update available question count when filters change
+  // Update question pool count when filters change
   useEffect(() => {
     if (!id) return
     const qs = new URLSearchParams({ subjectId: id, countOnly: 'true' })
@@ -68,6 +80,14 @@ export default function SubjectPage() {
       .then((d: { count: number }) => setPoolCount(d.count))
       .catch(() => setPoolCount(null))
   }, [id, filters])
+
+  if (subjectLoading) {
+    return (
+      <div style={{ maxWidth: '860px', margin: '0 auto', padding: '60px 16px', textAlign: 'center', color: 'var(--text-dim)' }}>
+        Loading…
+      </div>
+    )
+  }
 
   if (!subject) {
     return (
@@ -107,7 +127,9 @@ export default function SubjectPage() {
           <h1 style={{ fontFamily: "'Palatino Linotype', Georgia, serif", fontSize: '1.4rem', color: 'var(--text-bright)', fontWeight: 600 }}>
             {subject.icon} {subject.name}
           </h1>
-          <div style={{ fontSize: '.75rem', color: 'var(--text-dim)' }}>{subject.level} · {subject.syllabus}</div>
+          <div style={{ fontSize: '.75rem', color: 'var(--text-dim)' }}>
+            {subject.level} · {subject.syllabus} · {subject.count > 0 ? subject.count.toLocaleString() : '…'} questions
+          </div>
         </div>
       </div>
 
@@ -125,25 +147,21 @@ export default function SubjectPage() {
       <div className="fade-up stagger-2">
         <SectionLabel>Filters</SectionLabel>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-          {/* Paper */}
           <Select value={filters.paper} onChange={v => pf('paper', v)}>
             <option value="all">All Papers</option>
             {papers.map(p => <option key={p} value={p}>Paper {p}</option>)}
           </Select>
 
-          {/* Year */}
           <Select value={filters.year ?? 'all'} onChange={v => pf('year', v)}>
             <option value="all">All Years</option>
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </Select>
 
-          {/* Topic */}
           <Select value={filters.topic} onChange={v => pf('topic', v)}>
             <option value="all">All Topics</option>
             {topics.map(t => <option key={t} value={t}>{t}</option>)}
           </Select>
 
-          {/* Question type */}
           <Select value={filters.questionType} onChange={v => pf('questionType', v)}>
             <option value="all">All Types</option>
             <option value="mcq">MCQ</option>
