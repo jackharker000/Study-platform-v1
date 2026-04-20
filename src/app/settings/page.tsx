@@ -16,6 +16,8 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [themePref, setThemePref] = useState<ThemePref>('system')
+  const [search, setSearch] = useState('')
+  const [levelFilter, setLevelFilter] = useState<'all' | 'igcse' | 'as' | 'a'>('all')
 
   // Load theme pref from localStorage
   useEffect(() => {
@@ -190,71 +192,129 @@ export default function SettingsPage() {
               fontFamily: 'inherit',
             }}
           >
-            {saving ? 'Saving…' : saved ? 'Saved' : 'Save'}
+            {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save'}
           </button>
         </div>
         <p style={{ fontSize: '.82rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
           Select the courses you study. Only selected courses will appear on the home page.
-          {selected.size === 0 && ' (selecting none shows all courses)'}
         </p>
+
+        {/* Search & filter */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="Search by name or code…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{
+              flex: '1 1 180px',
+              padding: '8px 12px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text)',
+              fontSize: '.88rem',
+              fontFamily: 'inherit',
+              outline: 'none',
+            }}
+          />
+          <select
+            value={levelFilter}
+            onChange={e => setLevelFilter(e.target.value as typeof levelFilter)}
+            style={{
+              padding: '8px 12px',
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text)',
+              fontSize: '.88rem',
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              outline: 'none',
+            }}
+          >
+            <option value="all">All levels</option>
+            <option value="igcse">IGCSE</option>
+            <option value="as">AS</option>
+            <option value="a">A Level</option>
+          </select>
+        </div>
+
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
           gap: '8px',
         }}>
-          {subjects.map(s => {
-            const isSelected = selected.has(s.id)
-            return (
-              <div
-                key={s.id}
-                onClick={() => toggleSubject(s.id)}
-                style={{
-                  padding: '12px 14px',
-                  background: isSelected ? 'color-mix(in srgb, var(--accent) 12%, var(--bg-card))' : 'var(--bg-card)',
-                  border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                  borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer',
-                  transition: 'var(--transition)',
-                  userSelect: 'none',
-                }}
-              >
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'flex-start',
-                  gap: '6px',
-                }}>
-                  <div>
-                    <div style={{
-                      fontSize: '.88rem',
-                      fontWeight: 600,
-                      color: isSelected ? 'var(--accent)' : 'var(--text-bright)',
-                      marginBottom: '2px',
-                    }}>
-                      {s.name}
-                    </div>
-                    <div style={{ fontSize: '.72rem', color: 'var(--text-dim)' }}>
-                      {s.level} · {s.count.toLocaleString()} questions
-                    </div>
-                  </div>
+          {subjects
+            .filter(s => {
+              const q = search.trim().toLowerCase()
+              const matchesSearch = !q ||
+                s.name.toLowerCase().includes(q) ||
+                s.syllabus.toLowerCase().includes(q)
+              const lvl = s.level.toLowerCase()
+              const matchesLevel =
+                levelFilter === 'all' ||
+                (levelFilter === 'igcse' && lvl.includes('igcse')) ||
+                (levelFilter === 'as' && lvl === 'as') ||
+                (levelFilter === 'a' && (lvl === 'a2' || lvl === 'a level' || lvl === 'a'))
+              return matchesSearch && matchesLevel
+            })
+            .map(s => {
+              const isSelected = selected.has(s.id)
+              return (
+                <div
+                  key={s.id}
+                  onClick={() => toggleSubject(s.id)}
+                  style={{
+                    padding: '12px 14px',
+                    background: isSelected ? 'color-mix(in srgb, var(--accent) 12%, var(--bg-card))' : 'var(--bg-card)',
+                    border: `1px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    transition: 'var(--transition)',
+                    userSelect: 'none',
+                  }}
+                >
                   <div style={{
-                    width: '18px', height: '18px', flexShrink: 0,
-                    borderRadius: '4px',
-                    border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
-                    background: isSelected ? 'var(--accent)' : 'transparent',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    marginTop: '2px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'flex-start',
+                    gap: '6px',
                   }}>
-                    {isSelected && (
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                        <path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{
+                        fontSize: '.88rem',
+                        fontWeight: 600,
+                        color: isSelected ? 'var(--accent)' : 'var(--text-bright)',
+                        marginBottom: '2px',
+                      }}>
+                        {s.name}
+                      </div>
+                      <div style={{ fontSize: '.72rem', color: 'var(--text-dim)', marginBottom: '2px' }}>
+                        {s.level} · <span style={{ fontFamily: 'monospace', letterSpacing: '.03em' }}>{s.syllabus}</span>
+                      </div>
+                      <div style={{ fontSize: '.72rem', color: 'var(--text-dim)' }}>
+                        {s.count.toLocaleString()} questions
+                      </div>
+                    </div>
+                    <div style={{
+                      width: '18px', height: '18px', flexShrink: 0,
+                      borderRadius: '4px',
+                      border: `2px solid ${isSelected ? 'var(--accent)' : 'var(--border)'}`,
+                      background: isSelected ? 'var(--accent)' : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginTop: '2px',
+                    }}>
+                      {isSelected && (
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                          <path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
         </div>
       </div>
     </div>

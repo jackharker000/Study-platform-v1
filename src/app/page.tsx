@@ -21,12 +21,12 @@ export default function HomePage() {
     }).catch(() => { /* keep empty */ })
   }, [])
 
-  const filteredSubjects =
-    userSubjectIds && userSubjectIds.length > 0
-      ? subjects.filter(s => userSubjectIds.includes(s.id))
-      : subjects
+  const hasSelectedSubjects = userSubjectIds !== null && userSubjectIds.length > 0
+  const filteredSubjects = hasSelectedSubjects
+    ? subjects.filter(s => userSubjectIds!.includes(s.id))
+    : []
 
-  const showingAll = !userSubjectIds || userSubjectIds.length === 0
+  const isLoaded = userSubjectIds !== null
 
   return (
     <div style={{ maxWidth: '860px', margin: '0 auto', padding: '20px 16px 100px' }}>
@@ -53,32 +53,59 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {showingAll && (
-        <p className="fade-up stagger-2" style={{ fontSize: '.8rem', color: 'var(--text-dim)', marginBottom: '12px' }}>
-          Showing all courses — select your subjects in{' '}
-          <Link href="/settings" style={{ color: 'var(--accent)' }}>Settings</Link>
-        </p>
+      {/* Empty state */}
+      {isLoaded && !hasSelectedSubjects && (
+        <div className="fade-up stagger-2" style={{
+          textAlign: 'center',
+          padding: '60px 24px',
+          color: 'var(--text-dim)',
+        }}>
+          <div style={{ fontSize: '2rem', marginBottom: '12px' }}>📚</div>
+          <div style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text)', marginBottom: '8px' }}>
+            No courses selected
+          </div>
+          <p style={{ fontSize: '.88rem', marginBottom: '20px' }}>
+            Add your subjects in Settings to get started.
+          </p>
+          <Link
+            href="/settings"
+            style={{
+              display: 'inline-block',
+              padding: '9px 22px',
+              background: 'var(--accent)',
+              color: '#fff',
+              borderRadius: 'var(--radius-sm)',
+              textDecoration: 'none',
+              fontSize: '.88rem',
+              fontWeight: 600,
+            }}
+          >
+            Go to Settings
+          </Link>
+        </div>
       )}
 
       {/* Subject grid */}
-      <div
-        className="fade-up stagger-2"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: '10px',
-          marginBottom: '24px',
-        }}
-      >
-        {filteredSubjects.map(s => (
-          <SubjectCard
-            key={s.id}
-            subject={s}
-            count={s.count}
-            onClick={() => router.push(`/subject/${s.id}`)}
-          />
-        ))}
-      </div>
+      {filteredSubjects.length > 0 && (
+        <div
+          className="fade-up stagger-2"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+            gap: '10px',
+            marginBottom: '24px',
+          }}
+        >
+          {filteredSubjects.map(s => (
+            <SubjectCard
+              key={s.id}
+              subject={s}
+              count={s.count}
+              onClick={() => router.push(`/subject/${s.id}`)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
