@@ -11,6 +11,8 @@ const LEVEL_DISPLAY: Record<string, string> = {
 
 function parseTopics(raw: unknown): string[] {
   if (!raw || typeof raw !== 'string') return []
+  // populate-topics.js writes "section||topic||subtopic" (not JSON)
+  if (raw.includes('||')) return raw.split('||').map(s => s.trim()).filter(Boolean)
   try { return JSON.parse(raw) } catch { return [] }
 }
 
@@ -84,8 +86,9 @@ export async function GET(req: NextRequest) {
     if (isMcqStr === '1') conditions.push('q.is_mcq = 1')
     else if (isMcqStr === '0') conditions.push('q.is_mcq = 0')
     if (topic && topic !== 'all') {
-      conditions.push('q.topics LIKE ?')
-      args.push(`%${topic}%`)
+      // Use the dedicated topic column written by populate-topics.js
+      conditions.push('q.topic = ?')
+      args.push(topic)
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
@@ -108,13 +111,25 @@ export async function GET(req: NextRequest) {
     }
 
     if (distinct === 'topic') {
+      // Use the dedicated `topic` column (written by populate-topics.js)
+      // Falls back to parsing legacy `topics` col for any unclassified rows
       const r = await db.execute({
-        sql: `SELECT q.topics FROM questions q ${where}`,
+        sql: `SELECT DISTINCT q.topic FROM questions q ${where} AND q.topic IS NOT NULL AND q.topic != '' ORDER BY q.topic`,
+        args,
+      })
+      const classified = r.rows.map(row => String(row.topic)).filter(Boolean)
+      if (classified.length > 0) return NextResponse.json(classified)
+
+      // Fallback: parse legacy topics column
+      const r2 = await db.execute({
+        sql: `SELECT q.topics FROM questions q ${where} AND q.topics IS NOT NULL`,
         args,
       })
       const topicsSet = new Set<string>()
-      for (const row of r.rows) {
-        for (const t of parseTopics(row.topics)) topicsSet.add(t)
+      for (const row of r2.rows) {
+        const parts = parseTopics(row.topics)
+        if (parts[1]) topicsSet.add(parts[1]) // index 1 = topic (after section)
+        else if (parts[0]) topicsSet.add(parts[0])
       }
       return NextResponse.json([...topicsSet].sort())
     }
@@ -137,7 +152,7 @@ export async function GET(req: NextRequest) {
       sql: `
         SELECT q.id, q.subject_id, q.year, q.session, q.session_name, q.paper,
                q.question_num, q.is_mcq, q.ms_marks, q.ms_text, q.ms_guidance,
-               q.topics, q.pdf_url,
+               q.topic, q.subtopic, q.topics, q.pdf_url,
                s.name  AS subject_name,
                s.level AS subject_level,
                s.syllabus AS subject_syllabus
@@ -154,6 +169,14 @@ export async function GET(req: NextRequest) {
       const lvlCode = String(row.subject_level ?? '')
       const level   = LEVEL_DISPLAY[lvlCode] ?? lvlCode.toUpperCase()
       const msNote  = row.ms_guidance ? `\n\n[Guidance]\n${String(row.ms_guidance)}` : ''
+
+      // Prefer dedicated topic/subtopic columns; fall back to parsing legacy `topics`
+      const topicName    = row.topic    ? String(row.topic)    : null
+      const subtopicName = row.subtopic ? String(row.subtopic) : null
+      const topicsArray  = topicName
+        ? [topicName, ...(subtopicName ? [subtopicName] : [])]
+        : parseTopics(row.topics)
+
       return {
         id:           String(row.id ?? ''),
         level,
@@ -167,7 +190,7 @@ export async function GET(req: NextRequest) {
         imageUrl:     row.pdf_url ? String(row.pdf_url) : null,
         msText:       row.ms_text ? String(row.ms_text) + msNote : null,
         msMarks:      row.ms_marks != null ? Number(row.ms_marks) : null,
-        topics:       parseTopics(row.topics),
+        topics:       topicsArray,
         skills:       [],
       }
     })
