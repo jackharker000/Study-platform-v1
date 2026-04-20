@@ -1,7 +1,6 @@
 import NextAuth from 'next-auth'
 import Credentials from 'next-auth/providers/credentials'
 import Google from 'next-auth/providers/google'
-import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id'
 import bcrypt from 'bcryptjs'
 import { getTursoClient } from '@/lib/turso'
 
@@ -10,12 +9,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    }),
-
-    MicrosoftEntraID({
-      clientId: process.env.AZURE_AD_CLIENT_ID ?? '',
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET ?? '',
-      issuer: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID ?? 'common'}/v2.0`,
     }),
 
     Credentials({
