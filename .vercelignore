@@ -1,0 +1,14 @@
+node_modules/
+.next/
+*.db
+*.db-journal
+.env
+.env.local
+prisma/dev.db
+prisma/*.db
+dist/
+.DS_Store
+.claude/
+.claude.zip
+scripts/
+out/
