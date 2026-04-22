@@ -4,8 +4,27 @@ import path from 'path'
 
 export const dynamic = 'force-dynamic'
 
-const ALLOWED_ORIGIN =
-  process.env.NGROK_URL ?? 'https://unrevertible-unmaledictory-lucie.ngrok-free.dev'
+// Allowed URL patterns — NGROK_URL takes priority; falls back to matching any
+// ngrok / localhost / local-IP URL so a new ngrok session never breaks PDFs.
+const NGROK_URL = process.env.NGROK_URL ?? ''
+
+// Domains we trust for PDF proxying (all are local-only tunnels / local servers)
+const ALLOWED_PATTERNS = [
+  /^https?:\/\/[a-z0-9-]+\.ngrok(-free)?\.app\//i,
+  /^https?:\/\/[a-z0-9-]+\.ngrok-free\.dev\//i,
+  /^https?:\/\/[a-z0-9-]+\.ngrok\.io\//i,
+  /^https?:\/\/localhost(:\d+)?\//i,
+  /^https?:\/\/127\.0\.0\.1(:\d+)?\//i,
+  /^https?:\/\/192\.168\.\d+\.\d+(:\d+)?\//i,
+  /^https?:\/\/10\.\d+\.\d+\.\d+(:\d+)?\//i,
+]
+
+function isAllowedUrl(url: string): boolean {
+  // If NGROK_URL is explicitly configured, check it first (exact prefix match)
+  if (NGROK_URL && (url.startsWith(NGROK_URL + '/') || url === NGROK_URL)) return true
+  // Fallback: match any known tunnel/local pattern
+  return ALLOWED_PATTERNS.some(p => p.test(url))
+}
 
 const PDF_LOG_PATH = process.env.PDF_LOG_PATH ??
   path.join(
@@ -26,8 +45,9 @@ export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('url')
   if (!url) return NextResponse.json({ error: 'Missing url param' }, { status: 400 })
 
-  // Security: only proxy URLs from our configured PDF server
-  if (!url.startsWith(ALLOWED_ORIGIN + '/') && url !== ALLOWED_ORIGIN) {
+  // Security: only proxy URLs from our known PDF server patterns
+  if (!isAllowedUrl(url)) {
+    console.error(`[pdf-proxy] Blocked URL (not in allowlist): ${url.slice(0, 80)}`)
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
