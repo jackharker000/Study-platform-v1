@@ -77,15 +77,27 @@ function QuizInner() {
     setPending(p => ({ ...p, startTime: Date.now() }))
   }, [sessionId, router])
 
-  // Preload next 10 PDFs sequentially so they hit the browser cache before the user reaches them
+  // Preload next 5 PDFs truly sequentially (one at a time) so the local PDF server
+  // isn't overwhelmed. await each fetch before starting the next — browser caches
+  // the response so the <object> renders instantly when the user reaches that question.
   useEffect(() => {
     if (!quiz) return
-    for (let i = 1; i <= 10; i++) {
-      const q = quiz.questions[quiz.currentIdx + i]
-      if (q?.imageUrl) {
-        void fetch(`/api/pdf-proxy?url=${encodeURIComponent(q.imageUrl)}`).catch(() => {})
+    let cancelled = false
+    const preload = async () => {
+      for (let i = 1; i <= 5; i++) {
+        if (cancelled) break
+        const q = quiz.questions[quiz.currentIdx + i]
+        if (q?.imageUrl) {
+          try {
+            await fetch(`/api/pdf-proxy?url=${encodeURIComponent(q.imageUrl)}`)
+          } catch {
+            // PDF server unreachable for this question — continue to next
+          }
+        }
       }
     }
+    void preload()
+    return () => { cancelled = true }
   }, [quiz?.currentIdx]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Timed mode: countdown (500 ms tick)

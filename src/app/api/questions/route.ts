@@ -153,6 +153,11 @@ export async function GET(req: NextRequest) {
       ? 'ORDER BY RANDOM()'
       : 'ORDER BY q.year DESC, q.paper, CAST(q.question_num AS INTEGER)'
 
+    // Ensure parts_json column exists (idempotent — silently ignored if already present)
+    try {
+      await db.execute({ sql: 'ALTER TABLE questions ADD COLUMN parts_json TEXT', args: [] })
+    } catch { /* column already exists — fine */ }
+
     const r = await db.execute({
       sql: `
         SELECT q.id, q.subject_id, q.year, q.session, q.session_name, q.paper,
