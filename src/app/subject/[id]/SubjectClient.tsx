@@ -10,13 +10,21 @@ import { createSession } from '@/lib/sessionStore'
 const MODES: { id: SessionMode; name: string; desc: string }[] = [
   { id: 'practice',  name: 'Practice',   desc: 'Immediate feedback after each answer' },
   { id: 'exam',      name: 'Exam',       desc: 'No feedback until the end' },
+  { id: 'timed',     name: 'Timed',      desc: 'Score as many marks as possible before time runs out' },
   { id: 'weakness',  name: 'Weakness',   desc: 'Prioritise topics you struggle with' },
   { id: 'mistakes',  name: 'Mistakes',   desc: 'Replay questions you got wrong' },
   { id: 'tutor',     name: 'Tutor',      desc: 'Hints and step-by-step guidance' },
   { id: 'flashcard', name: 'Flashcard',  desc: 'Flip-card study mode' },
 ]
 
-const COUNTS = [5, 10, 15, 20]
+const TIMED_DURATIONS = [5, 10, 15, 20, 30]
+
+const COUNTS = [5, 10, 15, 20, 50, 100]
+
+function paperLabel(raw: string): string {
+  if (/^\d{2}$/.test(raw)) return `Paper ${raw[0]} (Variant ${raw[1]})`
+  return `Paper ${raw}`
+}
 const SESSION_LABELS: Record<string, string> = { s: 'Summer', w: 'Winter', m: 'March' }
 void SESSION_LABELS // used by future session filter if added
 
@@ -32,6 +40,7 @@ export default function SubjectPage() {
     paper: 'all', topic: 'all', difficulty: 'all', questionType: 'all', year: 'all',
   })
   const [count, setCount] = useState(10)
+  const [timedMinutes, setTimedMinutes] = useState(10)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -103,7 +112,11 @@ export default function SubjectPage() {
   async function handleStart() {
     setLoading(true)
     setError('')
-    const result = await createSession({ subject: id, mode, filters, count })
+    const sessionFilters: SessionFilters = mode === 'timed'
+      ? { ...filters, timedDurationMs: timedMinutes * 60_000 }
+      : filters
+    const sessionCount = mode === 'timed' ? 200 : count
+    const result = await createSession({ subject: id, mode, filters: sessionFilters, count: sessionCount })
     if ('error' in result) {
       setError(result.error)
       setLoading(false)
@@ -116,7 +129,7 @@ export default function SubjectPage() {
     setFilters(f => ({ ...f, [key]: val }))
 
   const availableCount = poolCount ?? 0
-  const sessionCount = mode === 'flashcard' ? availableCount : Math.min(availableCount, count)
+  const sessionCount = mode === 'flashcard' ? availableCount : mode === 'timed' ? Math.min(availableCount, 200) : Math.min(availableCount, count)
 
   return (
     <div style={{ maxWidth: '860px', margin: '0 auto', padding: '20px 16px 100px' }}>
@@ -149,7 +162,7 @@ export default function SubjectPage() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
           <Select value={filters.paper} onChange={v => pf('paper', v)}>
             <option value="all">All Papers</option>
-            {papers.map(p => <option key={p} value={p}>Paper {p}</option>)}
+            {papers.map(p => <option key={p} value={p}>{paperLabel(p)}</option>)}
           </Select>
 
           <Select value={filters.year ?? 'all'} onChange={v => pf('year', v)}>
@@ -157,10 +170,11 @@ export default function SubjectPage() {
             {years.map(y => <option key={y} value={y}>{y}</option>)}
           </Select>
 
-          <Select value={filters.topic} onChange={v => pf('topic', v)}>
-            <option value="all">All Topics</option>
-            {topics.map(t => <option key={t} value={t}>{t}</option>)}
-          </Select>
+          <TopicMultiPicker
+            topics={topics}
+            selected={filters.topic === 'all' ? [] : filters.topic.split(',').filter(Boolean)}
+            onChange={sel => pf('topic', sel.length === 0 ? 'all' : sel.join(','))}
+          />
 
           <Select value={filters.questionType} onChange={v => pf('questionType', v)}>
             <option value="all">All Types</option>
@@ -170,14 +184,43 @@ export default function SubjectPage() {
         </div>
       </div>
 
+      {/* Timed duration */}
+      {mode === 'timed' && (
+        <div className="fade-up stagger-3">
+          <SectionLabel>Duration</SectionLabel>
+          <ChipRow>
+            {TIMED_DURATIONS.map(n => (
+              <Chip key={n} label={`${n} min`} active={timedMinutes === n} onClick={() => setTimedMinutes(n)} />
+            ))}
+          </ChipRow>
+        </div>
+      )}
+
       {/* Count */}
-      {mode !== 'flashcard' && (
+      {mode !== 'flashcard' && mode !== 'timed' && (
         <div className="fade-up stagger-3">
           <SectionLabel>Question count</SectionLabel>
           <ChipRow>
             {COUNTS.map(n => (
               <Chip key={n} label={String(n)} active={count === n} onClick={() => setCount(n)} />
             ))}
+            <input
+              type="number"
+              min={1}
+              max={500}
+              placeholder="Custom"
+              onBlur={e => {
+                const n = parseInt(e.target.value, 10)
+                if (n >= 1 && n <= 500) setCount(n)
+                e.target.value = ''
+              }}
+              style={{
+                width: '72px', padding: '5px 8px',
+                background: 'var(--bg)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', color: 'var(--text)',
+                fontSize: '.82rem', fontFamily: 'inherit',
+              }}
+            />
           </ChipRow>
         </div>
       )}
@@ -198,17 +241,104 @@ export default function SubjectPage() {
           <div style={{ fontSize: '.75rem', color: 'var(--text-dim)' }}>
             {mode === 'flashcard'
               ? `Study all ${availableCount > 0 ? availableCount.toLocaleString() : ''} cards`
+              : mode === 'timed'
+              ? `${timedMinutes} min · up to ${sessionCount} questions`
               : `Up to ${sessionCount} questions`}
           </div>
         </div>
         <Button onClick={() => void handleStart()} disabled={availableCount === 0 || loading}>
-          {loading ? 'Starting…' : mode === 'flashcard' ? 'Start Flashcards →' : 'Start Quiz →'}
+          {loading ? 'Starting…' : mode === 'flashcard' ? 'Start Flashcards →' : mode === 'timed' ? 'Start Timed →' : 'Start Quiz →'}
         </Button>
       </div>
 
       {error && (
         <div style={{ marginTop: '12px', padding: '12px', background: 'var(--red-bg)', border: '1px solid rgba(239,68,68,.3)', borderRadius: 'var(--radius)', color: 'var(--red)', fontSize: '.84rem' }}>
           {error}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Multi-topic picker (up to 3) ─────────────────────────────────────────────
+
+function TopicMultiPicker({
+  topics, selected, onChange,
+}: { topics: string[]; selected: string[]; onChange: (sel: string[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const MAX = 3
+
+  function toggle(t: string) {
+    if (selected.includes(t)) {
+      onChange(selected.filter(x => x !== t))
+    } else if (selected.length < MAX) {
+      onChange([...selected, t])
+    }
+  }
+
+  const available = topics.filter(t => !selected.includes(t))
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+        {selected.length === 0 && (
+          <span style={{ fontSize: '.8rem', color: 'var(--text-dim)', padding: '4px 2px' }}>All Topics</span>
+        )}
+        {selected.map(t => (
+          <span
+            key={t}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: '4px',
+              padding: '3px 8px', background: 'var(--accent-glow)',
+              border: '1px solid var(--accent)', borderRadius: 'var(--radius-sm)',
+              fontSize: '.78rem', color: 'var(--accent)',
+            }}>
+            {t}
+            <button
+              onClick={() => toggle(t)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', padding: '0', lineHeight: 1, fontSize: '.75rem' }}>
+              ×
+            </button>
+          </span>
+        ))}
+        {selected.length < MAX && (
+          <button
+            onClick={() => setOpen(o => !o)}
+            style={{
+              padding: '3px 8px', background: 'var(--bg)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius-sm)', fontSize: '.78rem', color: 'var(--text-dim)',
+              cursor: 'pointer', whiteSpace: 'nowrap',
+            }}>
+            + Add topic {selected.length > 0 ? `(${selected.length}/${MAX})` : ''}
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, marginTop: '4px', zIndex: 50,
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius)', padding: '4px',
+          maxHeight: '220px', overflowY: 'auto', minWidth: '200px',
+          boxShadow: '0 4px 16px rgba(0,0,0,.2)',
+        }}>
+          {available.length === 0 ? (
+            <div style={{ padding: '8px 10px', fontSize: '.8rem', color: 'var(--text-dim)' }}>No more topics</div>
+          ) : available.map(t => (
+            <button
+              key={t}
+              onClick={() => { toggle(t); setOpen(false) }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '6px 10px', background: 'none', border: 'none',
+                cursor: 'pointer', fontSize: '.8rem', color: 'var(--text)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--accent-glow)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+              {t}
+            </button>
+          ))}
         </div>
       )}
     </div>

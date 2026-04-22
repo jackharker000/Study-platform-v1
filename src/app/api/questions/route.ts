@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const countOnly  = searchParams.get('countOnly') === 'true'
   const distinct   = searchParams.get('distinct')   // 'topic' | 'paper' | 'year'
 
-  const limit = Math.min(parseInt(limitStr, 10) || 20, 200)
+  const limit = Math.min(parseInt(limitStr, 10) || 20, 500)
 
   // ── Fallback: no Turso ─────────────────────────────────────────
   if (!isTursoConfigured()) {
@@ -86,9 +86,14 @@ export async function GET(req: NextRequest) {
     if (isMcqStr === '1') conditions.push('q.is_mcq = 1')
     else if (isMcqStr === '0') conditions.push('q.is_mcq = 0')
     if (topic && topic !== 'all') {
-      // Use the dedicated topic column written by populate-topics.js
-      conditions.push('q.topic = ?')
-      args.push(topic)
+      const topicList = topic.split(',').map((t: string) => t.trim()).filter(Boolean)
+      if (topicList.length === 1) {
+        conditions.push('q.topic = ?')
+        args.push(topicList[0])
+      } else if (topicList.length > 1) {
+        conditions.push(`q.topic IN (${topicList.map(() => '?').join(',')})`)
+        args.push(...topicList)
+      }
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
@@ -152,7 +157,7 @@ export async function GET(req: NextRequest) {
       sql: `
         SELECT q.id, q.subject_id, q.year, q.session, q.session_name, q.paper,
                q.question_num, q.is_mcq, q.ms_marks, q.ms_text, q.ms_guidance,
-               q.topic, q.subtopic, q.topics, q.pdf_url,
+               q.topic, q.subtopic, q.topics, q.pdf_url, q.parts_json,
                s.name  AS subject_name,
                s.level AS subject_level,
                s.syllabus AS subject_syllabus
@@ -192,10 +197,17 @@ export async function GET(req: NextRequest) {
         msMarks:      row.ms_marks != null ? Number(row.ms_marks) : null,
         topics:       topicsArray,
         skills:       [],
+        partsJson:    row.parts_json ? String(row.parts_json) : null,
       }
     })
 
-    return NextResponse.json(questions)
+    // Post-filter by isMcq using detectIsMcq result (more accurate than raw DB flag)
+    const isMcqFilter = isMcqStr === '1' ? true : isMcqStr === '0' ? false : null
+    const filtered = isMcqFilter !== null
+      ? questions.filter(q => q.isMcq === isMcqFilter)
+      : questions
+
+    return NextResponse.json(filtered)
   } catch (err) {
     console.error('[api/questions]', err)
     return NextResponse.json({ error: 'Failed to fetch questions' }, { status: 500 })
