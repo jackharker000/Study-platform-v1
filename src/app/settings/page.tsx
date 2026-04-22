@@ -255,7 +255,7 @@ export default function SettingsPage() {
               const matchesLevel =
                 levelFilter === 'all' ||
                 (levelFilter === 'igcse' && lvl.includes('igcse')) ||
-                (levelFilter === 'as' && lvl === 'as') ||
+                (levelFilter === 'as' && lvl.startsWith('as')) ||
                 (levelFilter === 'a' && (lvl === 'a2' || lvl === 'a level' || lvl === 'a'))
               return matchesSearch && matchesLevel
             })

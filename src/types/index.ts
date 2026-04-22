@@ -15,6 +15,7 @@ export interface CloudQuestion {
   msMarks: number | null   // total available marks
   topics: string[]
   skills: string[]
+  partsJson?: string | null  // JSON array of {label, text, marks} for multipart questions
 }
 
 // ─── Question Types ───────────────────────────────────────────────
@@ -73,7 +74,7 @@ export interface Subject {
 
 // ─── Session Types ────────────────────────────────────────────────
 
-export type SessionMode = 'practice' | 'exam' | 'weakness' | 'mistakes' | 'tutor' | 'flashcard'
+export type SessionMode = 'practice' | 'exam' | 'weakness' | 'mistakes' | 'tutor' | 'flashcard' | 'timed'
 export type SessionStatus = 'active' | 'completed'
 
 export interface SessionFilters {
@@ -82,6 +83,7 @@ export interface SessionFilters {
   difficulty: string
   questionType: string
   year?: string  // cloud questions filter
+  timedDurationMs?: number  // timed mode only
 }
 
 export interface SessionSummary {
@@ -123,7 +125,8 @@ export interface GradeResult {
   score: number
   maxScore: number
   gradingType: GradingType
-  criterionScores?: Record<string, number>
+  criterionScores?: Record<string, number>   // part label → score for multipart
+  partFeedbacks?: Record<string, string>      // part label → feedback text for multipart
   strengths?: string[]
   missingPoints?: string[]
   feedback?: string

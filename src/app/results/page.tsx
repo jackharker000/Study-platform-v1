@@ -16,7 +16,7 @@ interface AnswerRow {
 }
 
 interface ResultsData {
-  session: { mode: string; subject: string | null }
+  session: { mode: string; subject: string | null; timedDurationMs?: number }
   questions: CloudQuestion[]
   answers: AnswerRow[]
 }
@@ -32,7 +32,7 @@ function ResultsInner() {
     const session = getSession(sessionId)
     if (!session) { router.push('/'); return }
     setData({
-      session: { mode: session.mode, subject: session.subject },
+      session: { mode: session.mode, subject: session.subject, timedDurationMs: session.filters?.timedDurationMs },
       questions: session.questions,
       answers: session.answers.map(a => ({
         questionId: a.questionId,
@@ -59,6 +59,12 @@ function ResultsInner() {
   const correct = answers.filter(a => a.correct === true).length
   const accuracy = answered > 0 ? Math.round((correct / answered) * 100) : 0
   const skipped = total - answered
+  const isTimed = session.mode === 'timed'
+  const totalMarks = answers.reduce((s, a) => s + (a.score ?? 0), 0)
+  const maxMarks = answers.reduce((s, a) => s + (a.maxScore ?? 0), 0)
+  const marksPerMin = session.timedDurationMs && session.timedDurationMs > 0
+    ? Math.round((totalMarks / (session.timedDurationMs / 60_000)) * 10) / 10
+    : null
 
   const topicMap: Record<string, { correct: number; total: number }> = {}
   answers.forEach(a => {
@@ -77,17 +83,28 @@ function ResultsInner() {
     <div style={{ maxWidth: '860px', margin: '0 auto', padding: '20px 16px 100px' }}>
       <div className="fade-up" style={{ textAlign: 'center', marginBottom: '24px' }}>
         <h1 style={{ fontFamily: "'Palatino Linotype', Georgia, serif", fontSize: '1.85rem', color: 'var(--text-bright)', fontWeight: 600 }}>
-          Quiz Complete
+          {isTimed ? "Time's Up!" : 'Quiz Complete'}
         </h1>
         <div style={{ fontSize: '.82rem', color: 'var(--text-dim)', marginTop: '4px' }}>
           {session.mode} mode
+          {isTimed && session.timedDurationMs && ` · ${session.timedDurationMs / 60_000} min`}
         </div>
       </div>
 
       <div className="fade-up stagger-1" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '10px', marginBottom: '20px' }}>
-        <StatCard value={`${accuracy}%`} label="Accuracy" color={accuracyColor} />
-        <StatCard value={`${correct}/${answered}`} label="Correct" />
-        <StatCard value={skipped} label="Skipped" />
+        {isTimed ? (
+          <>
+            <StatCard value={`${totalMarks}`} label={`Marks scored${maxMarks > 0 ? ` / ${maxMarks}` : ''}`} color={accuracyColor} />
+            <StatCard value={answered} label="Answered" />
+            {marksPerMin !== null && <StatCard value={`${marksPerMin}/min`} label="Marks / min" />}
+          </>
+        ) : (
+          <>
+            <StatCard value={`${accuracy}%`} label="Accuracy" color={accuracyColor} />
+            <StatCard value={`${correct}/${answered}`} label="Correct" />
+            <StatCard value={skipped} label="Skipped" />
+          </>
+        )}
       </div>
 
       {topicRows.length > 0 && (
